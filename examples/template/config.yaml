@@ -1,0 +1,20 @@
+# Configuration with Go template syntax
+# Template variables: .Environment, .Region, .Version
+
+app_name: "myapp-{{ .Version }}"
+environment: "{{ .Environment }}"
+
+# Dynamic endpoint based on environment
+{{ if eq .Environment "prod" }}
+endpoint: "https://api.{{ .Region }}.example.com"
+log_level: "warn"
+replicas: 3
+{{ else if eq .Environment "staging" }}
+endpoint: "https://staging-api.{{ .Region }}.example.com"
+log_level: "info"
+replicas: 2
+{{ else }}
+endpoint: "http://localhost:8080"
+log_level: "debug"
+replicas: 1
+{{ end }}

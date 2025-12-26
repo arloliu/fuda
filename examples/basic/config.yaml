@@ -1,0 +1,14 @@
+# Example configuration file
+app_name: "my-awesome-app"
+version: "2.0.0"
+
+# Server settings (can be overridden by APP_HOST and APP_PORT env vars)
+host: "0.0.0.0"
+port: 3000
+
+# Timeout as duration string
+timeout: "60s"
+
+# Feature flags
+debug: true
+verbose: false

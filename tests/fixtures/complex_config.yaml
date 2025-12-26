@@ -1,0 +1,32 @@
+# Complex nested configuration for testing
+app:
+  name: "myapp"
+  version: "1.0.0"
+
+database:
+  primary:
+    host: "primary.db.local"
+    port: 5432
+  replicas:
+    - host: "replica1.db.local"
+      port: 5432
+    - host: "replica2.db.local"
+      port: 5433
+
+features:
+  enabled:
+    - "feature_a"
+    - "feature_b"
+  settings:
+    feature_a:
+      threshold: 0.8
+      enabled: true
+    feature_b:
+      max_retries: 3
+      enabled: false
+
+cache:
+  redis:
+    host: "redis.local"
+    port: 6379
+    password_file: "redis_password"

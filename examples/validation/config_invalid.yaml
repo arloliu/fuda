@@ -1,0 +1,15 @@
+# Invalid configuration (for demonstrating validation errors)
+app_name: ""                    # Required - empty
+port: 99999                     # Max is 65535
+max_workers: 200                # Max is 100
+environment: "development"      # Must be: dev, staging, prod
+log_level: "verbose"            # Must be: debug, info, warn, error
+endpoint: "not-a-url"           # Must be valid URL
+admin_email: "not-an-email"     # Must be valid email
+
+database:
+  host: ""                      # Required
+  port: 0                       # Min is 1
+  database: ""                  # Required
+  username: ""                  # Required
+  password: "short"             # Min length is 8

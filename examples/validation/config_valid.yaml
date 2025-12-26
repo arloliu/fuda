@@ -1,0 +1,16 @@
+# Valid configuration
+app_name: "my-app"
+port: 8080
+max_workers: 10
+max_body_size: 10485760  # 10MB
+environment: "prod"
+log_level: "info"
+endpoint: "https://api.example.com"
+admin_email: "admin@example.com"
+
+database:
+  host: "db.example.com"
+  port: 5432
+  database: "myapp"
+  username: "app_user"
+  password: "secure-password-123"

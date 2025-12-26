@@ -1,0 +1,10 @@
+# Some values are set, others will get dynamic defaults
+app_name: "my-dynamic-app"
+
+# request_id, hostname, start_time are not set
+# They will be populated by SetDefaults()
+
+server:
+  host: "0.0.0.0"
+  port: 3000
+  # bind_address will be computed as "0.0.0.0:3000"

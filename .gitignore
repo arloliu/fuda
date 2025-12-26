@@ -1,0 +1,15 @@
+.vscode/settings.json
+.vscode
+*.code-workspace
+.coverage
+.benchmarks/
+
+tmp/
+bin/
+
+/*.out
+/*.log
+/*.test
+/*.cov
+/*.html
+/*.pprof

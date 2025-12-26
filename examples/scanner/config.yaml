@@ -1,0 +1,4 @@
+# Custom types parsed by Scanner.Scan()
+app_name: "my-service"
+log_level: "warn"       # Parsed to LogLevel enum
+driver: "pg"            # Parsed to DatabaseDriver (alias for postgres)

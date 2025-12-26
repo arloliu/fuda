@@ -1,0 +1,5 @@
+# Config with nested pointer structs
+database:
+  primary:
+    host: "main.db.local"
+    port: 3306
