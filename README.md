@@ -71,7 +71,17 @@ func main() {
 - **Template processing** via Go's `text/template` for dynamic configuration
 - **Custom type conversion** via `Scanner` interface
 - **Dynamic defaults** via `Setter` interface
+- **Duration type** with human-friendly parsing (e.g., `"30s"`, `"5m"`, `"1h30m"`)
+- **RawMessage type** for deferred/polymorphic JSON/YAML unmarshaling
 - **Validation** using [go-playground/validator](https://github.com/go-playground/validator)
+
+## Documentation
+
+- **[Tag Specification](docs/tag-spec.md)** - Complete reference for all struct tags
+- **[Setter & Scanner](docs/setter-scanner.md)** - Custom type conversion and dynamic defaults
+- **[Custom Resolvers](docs/custom-resolvers.md)** - Implementing custom reference resolvers
+- **[Vault Resolver](vault/README.md)** - HashiCorp Vault integration (separate module: `go get github.com/arloliu/fuda/vault`)
+- **[Config Watcher](docs/config-watcher.md)** - Hot-reload configuration watching
 
 ## API
 
@@ -182,14 +192,6 @@ fuda.LoadReader(reader, &cfg)
 
 A `Loader` instance does not mutate state after construction and can be safely reused.
 
-## Documentation
-
-- **[Tag Specification](docs/tag-spec.md)** - Complete reference for all struct tags
-- **[Setter & Scanner](docs/setter-scanner.md)** - Custom type conversion and dynamic defaults
-- **[Custom Resolvers](docs/custom-resolvers.md)** - Implementing custom reference resolvers
-- **[Vault Resolver](vault/README.md)** - HashiCorp Vault integration (separate module: `go get github.com/arloliu/fuda/vault`)
-- **[Config Watcher](docs/config-watcher.md)** - Hot-reload configuration watching
-
 ### Setter Interface
 
 Implement `Setter` for dynamic defaults that can't be expressed as static tag values:
@@ -261,3 +263,17 @@ if errors.As(err, &validationErr) {
 }
 ```
 
+## Examples
+
+Working examples are available in the [`examples/`](examples/) directory:
+
+| Example | Description |
+|---------|-------------|
+| [basic](examples/basic/) | Loading config with defaults, env overrides, and validation |
+| [dsn](examples/dsn/) | Composing connection strings using `dsn` tag |
+| [refs](examples/refs/) | External references with `ref` and `refFrom` tags |
+| [scanner](examples/scanner/) | Custom type conversion via `Scanner` interface |
+| [setter](examples/setter/) | Dynamic defaults via `Setter` interface |
+| [template](examples/template/) | Go template processing for dynamic config |
+| [validation](examples/validation/) | Struct validation with `validate` tag |
+| [watcher](examples/watcher/) | Hot-reload configuration with fsnotify |
