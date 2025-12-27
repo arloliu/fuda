@@ -40,8 +40,44 @@ func TestConvert(t *testing.T) {
 		{"bool true", "true", new(bool), true, false},
 		{"bool false", "false", new(bool), false, false},
 
-		// Duration
-		{"duration", "10s", new(time.Duration), 10 * time.Second, false},
+		// Duration - standard units (passthrough to time.ParseDuration)
+		{"duration seconds", "10s", new(time.Duration), 10 * time.Second, false},
+		{"duration minutes", "30m", new(time.Duration), 30 * time.Minute, false},
+		{"duration hours", "2h", new(time.Duration), 2 * time.Hour, false},
+		{"duration milliseconds", "500ms", new(time.Duration), 500 * time.Millisecond, false},
+		{"duration microseconds", "100us", new(time.Duration), 100 * time.Microsecond, false},
+		{"duration nanoseconds", "1000ns", new(time.Duration), 1000 * time.Nanosecond, false},
+		{"duration combined standard", "1h30m45s", new(time.Duration), 1*time.Hour + 30*time.Minute + 45*time.Second, false},
+
+		// Duration - day suffix 'd'
+		{"duration days", "5d", new(time.Duration), 5 * 24 * time.Hour, false},
+		{"duration one day", "1d", new(time.Duration), 24 * time.Hour, false},
+		{"duration uppercase D", "3D", new(time.Duration), 3 * 24 * time.Hour, false},
+		{"duration zero days", "0d", new(time.Duration), time.Duration(0), false},
+		{"duration fractional days half", "0.5d", new(time.Duration), 12 * time.Hour, false},
+		{"duration fractional days quarter", "0.25d", new(time.Duration), 6 * time.Hour, false},
+		{"duration fractional days third", "1.5d", new(time.Duration), 36 * time.Hour, false},
+
+		// Duration - days combined with other units
+		{"duration days and hours", "1d12h", new(time.Duration), 36 * time.Hour, false},
+		{"duration days hours minutes", "2d3h30m", new(time.Duration), 51*time.Hour + 30*time.Minute, false},
+		{"duration days hours minutes seconds", "1d2h3m4s", new(time.Duration), 26*time.Hour + 3*time.Minute + 4*time.Second, false},
+		{"duration days and seconds only", "1d30s", new(time.Duration), 24*time.Hour + 30*time.Second, false},
+		{"duration days and milliseconds", "1d500ms", new(time.Duration), 24*time.Hour + 500*time.Millisecond, false},
+
+		// Duration - negative values
+		{"duration negative days", "-1d", new(time.Duration), -24 * time.Hour, false},
+		{"duration negative combined", "-2d12h", new(time.Duration), -60 * time.Hour, false},
+
+		// Duration - large values
+		{"duration week equivalent", "7d", new(time.Duration), 7 * 24 * time.Hour, false},
+		{"duration month equivalent", "30d", new(time.Duration), 30 * 24 * time.Hour, false},
+		{"duration year equivalent", "365d", new(time.Duration), 365 * 24 * time.Hour, false},
+
+		// Duration - error cases
+		{"duration invalid format", "5x", new(time.Duration), nil, true},
+		{"duration empty", "", new(time.Duration), nil, true},
+		{"duration only letters", "abc", new(time.Duration), nil, true},
 
 		// Slices
 		{"slice string", "a,b,c", new([]string), []string{"a", "b", "c"}, false},

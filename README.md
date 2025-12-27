@@ -72,7 +72,7 @@ func main() {
 - **Template processing** via Go's `text/template` for dynamic configuration
 - **Custom type conversion** via `Scanner` interface
 - **Dynamic defaults** via `Setter` interface
-- **Duration type** with human-friendly parsing (e.g., `"30s"`, `"5m"`, `"1h30m"`)
+- **Duration type** with human-friendly parsing (e.g., `"30s"`, `"5m"`, `"1h30m"`, `"7d"`)
 - **RawMessage type** for deferred/polymorphic JSON/YAML unmarshaling
 - **Validation** using [go-playground/validator](https://github.com/go-playground/validator)
 

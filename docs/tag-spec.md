@@ -14,15 +14,15 @@ type Config struct {
 }
 ```
 
-| Tag | Purpose | Priority |
-|-----|---------|----------|
-| `env` | Environment variable override | Highest |
-| `yaml`/`json` | Config file key | - |
-| `ref` | Load from fixed URI | - |
-| `refFrom` | Load from URI in another field | - |
-| `default` | Fallback value | Lowest |
-| `dsn` | Compose connection string from fields | After default |
-| `validate` | Validation rules | After loading |
+| Tag           | Purpose                               | Priority      |
+| ------------- | ------------------------------------- | ------------- |
+| `env`         | Environment variable override         | Highest       |
+| `yaml`/`json` | Config file key                       | -             |
+| `ref`         | Load from fixed URI                   | -             |
+| `refFrom`     | Load from URI in another field        | -             |
+| `default`     | Fallback value                        | Lowest        |
+| `dsn`         | Compose connection string from fields | After default |
+| `validate`    | Validation rules                      | After loading |
 
 **Priority order:** `env` > config file > `ref`/`refFrom` > `default` > `dsn`
 
@@ -42,14 +42,30 @@ Tags    []string      `default:"[\"app\", \"prod\"]"`
 
 ### Supported Types
 
-| Type | Example |
-|------|---------|
-| `string`, `int`, `bool`, `float64` | `default:"value"` |
-| `*string`, `*int`, etc. | `default:"value"` |
-| `time.Duration` | `default:"30s"`, `default:"5m"` |
-| `time.Time` | `default:"2024-01-01T00:00:00Z"` (RFC3339) |
-| `[]T` | `default:"[1, 2, 3]"` (JSON array) |
-| `map[K]V` | `default:"{\"key\": \"value\"}"` (JSON object) |
+| Type                               | Example                                         |
+| ---------------------------------- | ----------------------------------------------- |
+| `string`, `int`, `bool`, `float64` | `default:"value"`                               |
+| `*string`, `*int`, etc.            | `default:"value"`                               |
+| `time.Duration`                    | `default:"30s"`, `default:"5m"`, `default:"7d"` |
+| `time.Time`                        | `default:"2024-01-01T00:00:00Z"` (RFC3339)      |
+| `[]T`                              | `default:"[1, 2, 3]"` (JSON array)              |
+| `map[K]V`                          | `default:"{\"key\": \"value\"}"` (JSON object)  |
+
+### Duration Parsing
+
+Fuda extends Go's standard `time.ParseDuration` to support **days** with the `d` suffix:
+
+| Unit         | Suffix    | Example              |
+| ------------ | --------- | -------------------- |
+| Days         | `d`       | `7d` (7 days = 168h) |
+| Hours        | `h`       | `24h`                |
+| Minutes      | `m`       | `30m`                |
+| Seconds      | `s`       | `45s`                |
+| Milliseconds | `ms`      | `500ms`              |
+| Microseconds | `us`/`µs` | `100us`              |
+| Nanoseconds  | `ns`      | `1000ns`             |
+
+Units can be combined: `1d12h30m` (1 day, 12 hours, 30 minutes). Fractional days are supported: `0.5d` (12 hours).
 
 ### Skip Default
 
@@ -80,6 +96,7 @@ loader, _ := fuda.New().
 ```
 
 With prefix `APP_`:
+
 - `env:"HOST"` reads from `APP_HOST`
 - `env:"PORT"` reads from `APP_PORT`
 
@@ -99,10 +116,10 @@ APIKey string `ref:"https://vault.example.com/v1/secrets/api_key"`
 
 ### Supported Schemes
 
-| Scheme | Description |
-|--------|-------------|
-| `file://` | Local file |
-| `http://` | HTTP endpoint |
+| Scheme     | Description    |
+| ---------- | -------------- |
+| `file://`  | Local file     |
+| `http://`  | HTTP endpoint  |
 | `https://` | HTTPS endpoint |
 
 ---
@@ -119,18 +136,18 @@ type Config struct {
 ```
 
 ```yaml
-token_path: "/run/secrets/app_token"
+token_path: '/run/secrets/app_token'
 ```
 
 ### Path Normalization
 
 Bare paths are automatically prefixed with `file://`:
 
-| Input | Normalized |
-|-------|------------|
-| `/run/secrets/token` | `file:///run/secrets/token` |
-| `file:///path` | `file:///path` |
-| `https://example.com` | `https://example.com` |
+| Input                 | Normalized                  |
+| --------------------- | --------------------------- |
+| `/run/secrets/token`  | `file:///run/secrets/token` |
+| `file:///path`        | `file:///path`              |
+| `https://example.com` | `https://example.com`       |
 
 ---
 
@@ -142,12 +159,12 @@ The `dsn` tag is processed **after** all other tags (`env`, `ref`, `default`), s
 
 ### Template Syntax
 
-| Syntax | Description |
-|--------|-------------|
-| `${.FieldName}` | Value of a field in the same struct |
-| `${.Nested.Field}` | Nested struct field access |
-| `${ref:uri}` | Resolve a URI inline |
-| `${env:KEY}` | Read an environment variable |
+| Syntax             | Description                         |
+| ------------------ | ----------------------------------- |
+| `${.FieldName}`    | Value of a field in the same struct |
+| `${.Nested.Field}` | Nested struct field access          |
+| `${ref:uri}`       | Resolve a URI inline                |
+| `${env:KEY}`       | Read an environment variable        |
 
 ---
 
@@ -184,6 +201,7 @@ type Config struct {
 ```
 
 Supported URI schemes for `${ref:...}`:
+
 - `file://` - Local files (e.g., Docker secrets)
 - `http://` / `https://` - HTTP endpoints
 - `vault://` - HashiCorp Vault (requires vault resolver)
@@ -272,8 +290,6 @@ DSN string `dsn:"postgres://${.User}@${.Host}:5432/db" dsnStrict:"true"`
 
 ---
 
-
-
 ## `validate` Tag
 
 Validation rules using [go-playground/validator](https://pkg.go.dev/github.com/go-playground/validator/v10).
@@ -286,14 +302,14 @@ Env  string `validate:"required,oneof=dev staging prod"`
 
 ### Common Rules
 
-| Rule | Description |
-|------|-------------|
-| `required` | Must not be zero |
-| `min=N` | Minimum value/length |
-| `max=N` | Maximum value/length |
+| Rule          | Description                  |
+| ------------- | ---------------------------- |
+| `required`    | Must not be zero             |
+| `min=N`       | Minimum value/length         |
+| `max=N`       | Maximum value/length         |
 | `oneof=a b c` | Must be one of listed values |
-| `url` | Must be valid URL |
-| `email` | Must be valid email |
+| `url`         | Must be valid URL            |
+| `email`       | Must be valid email          |
 
 ---
 
