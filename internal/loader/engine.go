@@ -28,9 +28,15 @@ type Engine struct {
 	Timeout        time.Duration
 	TemplateConfig *TemplateConfig
 	TemplateData   any
+	DotenvConfig   *DotenvConfig
 }
 
 func (e *Engine) Load(target any) error {
+	// Load dotenv files first, before any env tag processing
+	if err := e.loadDotenvFiles(); err != nil {
+		return fmt.Errorf("failed to load dotenv files: %w", err)
+	}
+
 	ctx := context.Background()
 	if e.Timeout > 0 {
 		var cancel context.CancelFunc

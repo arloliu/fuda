@@ -50,12 +50,32 @@ type Loader struct {
 
 // loaderConfig holds the configuration for the loader.
 type loaderConfig struct {
-	envPrefix   string
-	validator   *validator.Validate
-	refResolver RefResolver
-	timeout     time.Duration
-	tmplConfig  *templateConfig
-	tmplData    any
+	envPrefix    string
+	validator    *validator.Validate
+	refResolver  RefResolver
+	timeout      time.Duration
+	tmplConfig   *templateConfig
+	tmplData     any
+	dotenvConfig *dotenvConfig // dotenv file loading configuration
+}
+
+// dotenvConfig holds dotenv file loading configuration.
+type dotenvConfig struct {
+	files       []string // Explicit file paths to load
+	searchPaths []string // Directories to search for env file
+	searchName  string   // Filename to search for (e.g., ".env")
+	override    bool     // If true, use godotenv.Overload instead of Load
+}
+
+// DotEnvOption configures dotenv loading behavior.
+type DotEnvOption func(*dotenvConfig)
+
+// DotEnvOverride returns an option that causes dotenv values to override
+// existing environment variables. By default, existing env vars take precedence.
+func DotEnvOverride() DotEnvOption {
+	return func(c *dotenvConfig) {
+		c.override = true
+	}
 }
 
 // templateConfig holds template parsing configuration.
@@ -246,6 +266,86 @@ func (b *Builder) WithTemplate(data any, opts ...TemplateOption) *Builder {
 	return b
 }
 
+// WithDotEnv loads environment variables from a dotenv file before processing.
+// The file is loaded before any `env` tag resolution, so dotenv values become
+// available to struct fields with env tags.
+//
+// By default, existing environment variables take precedence over dotenv values.
+// Use DotEnvOverride() option to reverse this behavior.
+//
+// Missing files are silently ignored, making this safe for optional .env.local files.
+//
+// Example:
+//
+//	loader, _ := fuda.New().
+//	    FromFile("config.yaml").
+//	    WithDotEnv(".env").
+//	    Build()
+//
+//	// With override mode:
+//	loader, _ := fuda.New().
+//	    FromFile("config.yaml").
+//	    WithDotEnv(".env", fuda.DotEnvOverride()).
+//	    Build()
+func (b *Builder) WithDotEnv(file string, opts ...DotEnvOption) *Builder {
+	cfg := &dotenvConfig{
+		files: []string{file},
+	}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	b.config.dotenvConfig = cfg
+
+	return b
+}
+
+// WithDotEnvFiles loads environment variables from multiple dotenv files.
+// Files are loaded in order; later files can supplement earlier ones.
+// This enables environment-specific overlays:
+//
+//	loader, _ := fuda.New().
+//	    FromFile("config.yaml").
+//	    WithDotEnvFiles([]string{".env", ".env.local", ".env.production"}).
+//	    Build()
+//
+// Missing files are silently ignored.
+// Use DotEnvOverride() option to override existing env vars.
+func (b *Builder) WithDotEnvFiles(files []string, opts ...DotEnvOption) *Builder {
+	cfg := &dotenvConfig{
+		files: files,
+	}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	b.config.dotenvConfig = cfg
+
+	return b
+}
+
+// WithDotEnvSearch searches for a dotenv file in the specified directories.
+// The first existing file found wins. This is useful when the application
+// may be run from different working directories:
+//
+//	loader, _ := fuda.New().
+//	    FromFile("config.yaml").
+//	    WithDotEnvSearch(".env", []string{".", "./config", "/etc/myapp"}).
+//	    Build()
+//
+// The name parameter is the filename to search for (e.g., ".env").
+// Use DotEnvOverride() option to override existing env vars.
+func (b *Builder) WithDotEnvSearch(name string, searchPaths []string, opts ...DotEnvOption) *Builder {
+	cfg := &dotenvConfig{
+		searchName:  name,
+		searchPaths: searchPaths,
+	}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	b.config.dotenvConfig = cfg
+
+	return b
+}
+
 // Build creates the Loader with the configured options.
 // Returns an error if any prior builder method (FromFile, FromReader) failed.
 func (b *Builder) Build() (*Loader, error) {
@@ -261,12 +361,13 @@ func (b *Builder) Build() (*Loader, error) {
 
 	return &Loader{
 		loaderConfig: loaderConfig{
-			envPrefix:   b.config.envPrefix,
-			validator:   b.config.validator,
-			refResolver: refResolver,
-			timeout:     b.config.timeout,
-			tmplConfig:  b.config.tmplConfig,
-			tmplData:    b.config.tmplData,
+			envPrefix:    b.config.envPrefix,
+			validator:    b.config.validator,
+			refResolver:  refResolver,
+			timeout:      b.config.timeout,
+			tmplConfig:   b.config.tmplConfig,
+			tmplData:     b.config.tmplData,
+			dotenvConfig: b.config.dotenvConfig,
 		},
 		source:     b.source,
 		sourceName: b.name,
@@ -290,6 +391,16 @@ func (l *Loader) Load(target any) error {
 		}
 	}
 
+	var dotenvCfg *loader.DotenvConfig
+	if l.dotenvConfig != nil {
+		dotenvCfg = &loader.DotenvConfig{
+			Files:       l.dotenvConfig.files,
+			SearchPaths: l.dotenvConfig.searchPaths,
+			SearchName:  l.dotenvConfig.searchName,
+			Override:    l.dotenvConfig.override,
+		}
+	}
+
 	engine := &loader.Engine{
 		Validator:      l.validator,
 		RefResolver:    l.refResolver,
@@ -299,6 +410,7 @@ func (l *Loader) Load(target any) error {
 		Timeout:        l.timeout,
 		TemplateConfig: tmplCfg,
 		TemplateData:   l.tmplData,
+		DotenvConfig:   dotenvCfg,
 	}
 
 	return engine.Load(target)

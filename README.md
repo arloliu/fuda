@@ -6,7 +6,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/arloliu/fuda.svg)](https://pkg.go.dev/github.com/arloliu/fuda)
 
-> ⛩️ *Spiritual protection and hydration for your Go configurations.*
+> ⛩️ _Spiritual protection and hydration for your Go configurations._
 
 **Fuda** is a lightweight, struct-tag-first configuration library for Go — with built-in defaults, environment overrides, secret references, and validation.
 
@@ -64,6 +64,7 @@ func main() {
 - **YAML/JSON parsing** with struct tag support
 - **Default values** via `default` tag
 - **Environment overrides** via `env` tag with optional prefix
+- **Dotenv file loading** via `WithDotEnv()` with overlay and override support
 - **External references** via `ref` and `refFrom` tags (file://, http://, https://, vault://)
 - **DSN composition** via `dsn` tag for building connection strings from fields
 - **HashiCorp Vault integration** via `fuda/vault` package (Token, Kubernetes, AppRole auth)
@@ -91,6 +92,7 @@ func main() {
 loader, err := fuda.New().
     FromFile("config.yaml").           // or FromBytes(), FromReader()
     WithEnvPrefix("APP_").             // optional: prefix for env vars
+    WithDotEnv(".env").                // optional: load .env file
     WithTimeout(10 * time.Second).     // optional: timeout for ref resolution
     WithValidator(customValidator).    // optional: custom validator
     WithRefResolver(customResolver).   // optional: custom ref resolver
@@ -126,16 +128,40 @@ loader, _ := fuda.New().
 ```
 
 With `config.yaml`:
-```yaml
-host: "{{ .Host }}"
-environment: "{{ .Env }}"
-```
 
+````yaml
+host: "{{ .Host }}"
 Custom delimiters can be set if your config contains literal `{{` sequences:
 
 ```go
 WithTemplate(data, fuda.WithDelimiters("<{", "}>"))
+````
+
+### Dotenv Loading
+
+Load environment variables from `.env` files before processing:
+
+```go
+// Single file
+loader, _ := fuda.New().
+    FromFile("config.yaml").
+    WithDotEnv(".env").
+    Build()
+
+// Multiple files (overlay pattern)
+loader, _ := fuda.New().
+    FromFile("config.yaml").
+    WithDotEnvFiles([]string{".env", ".env.local", ".env.production"}).
+    Build()
+
+// Override mode (dotenv values override existing env vars)
+loader, _ := fuda.New().
+    FromFile("config.yaml").
+    WithDotEnv(".env", fuda.DotEnvOverride()).
+    Build()
 ```
+
+Missing files are silently ignored, making this safe for optional overlays like `.env.local`.
 
 ### DSN Composition
 
@@ -163,7 +189,7 @@ DSN string `dsn:"redis://${env:REDIS_HOST}:${env:REDIS_PORT}/0"`
 ```
 
 ### Convenience Functions
-g
+
 ```go
 // Load from file
 fuda.LoadFile("config.yaml", &cfg)
@@ -177,18 +203,18 @@ fuda.LoadReader(reader, &cfg)
 
 ## Important Notes
 
-| Topic | Details |
-|-------|---------|
-| **Timeout** | Default is `0` (no timeout). Set explicitly with `WithTimeout()` for network refs. |
-| **Blocking I/O** | `Load()` blocks during file/network operations. Run in a goroutine if needed. |
-| **File URIs** | Supports `file:///absolute/path` and `file://relative/path` formats. |
+| Topic            | Details                                                                            |
+| ---------------- | ---------------------------------------------------------------------------------- |
+| **Timeout**      | Default is `0` (no timeout). Set explicitly with `WithTimeout()` for network refs. |
+| **Blocking I/O** | `Load()` blocks during file/network operations. Run in a goroutine if needed.      |
+| **File URIs**    | Supports `file:///absolute/path` and `file://relative/path` formats.               |
 
 ## Thread Safety
 
-| Component | Thread-Safe? |
-|-----------|--------------|
-| `Loader` | ✅ Yes — safe to call `Load()` from multiple goroutines after `Build()` |
-| `RefResolver` | ⚠️ Implementations must be thread-safe if `Loader` is shared |
+| Component     | Thread-Safe?                                                            |
+| ------------- | ----------------------------------------------------------------------- |
+| `Loader`      | ✅ Yes — safe to call `Load()` from multiple goroutines after `Build()` |
+| `RefResolver` | ⚠️ Implementations must be thread-safe if `Loader` is shared            |
 
 A `Loader` instance does not mutate state after construction and can be safely reused.
 
@@ -243,11 +269,11 @@ type Config struct {
 
 The library provides typed errors for inspection:
 
-| Error Type | When Returned |
-|------------|---------------|
-| `*FieldError` | Invalid tag value, type conversion failure, or ref resolution failure |
-| `*LoadError` | Multiple field errors during a single load operation |
-| `*ValidationError` | Validation rules from `validate` tag failed |
+| Error Type         | When Returned                                                         |
+| ------------------ | --------------------------------------------------------------------- |
+| `*FieldError`      | Invalid tag value, type conversion failure, or ref resolution failure |
+| `*LoadError`       | Multiple field errors during a single load operation                  |
+| `*ValidationError` | Validation rules from `validate` tag failed                           |
 
 All errors support `errors.Is()` and `errors.Unwrap()` for error chain inspection.
 
@@ -267,13 +293,14 @@ if errors.As(err, &validationErr) {
 
 Working examples are available in the [`examples/`](examples/) directory:
 
-| Example | Description |
-|---------|-------------|
-| [basic](examples/basic/) | Loading config with defaults, env overrides, and validation |
-| [dsn](examples/dsn/) | Composing connection strings using `dsn` tag |
-| [refs](examples/refs/) | External references with `ref` and `refFrom` tags |
-| [scanner](examples/scanner/) | Custom type conversion via `Scanner` interface |
-| [setter](examples/setter/) | Dynamic defaults via `Setter` interface |
-| [template](examples/template/) | Go template processing for dynamic config |
-| [validation](examples/validation/) | Struct validation with `validate` tag |
-| [watcher](examples/watcher/) | Hot-reload configuration with fsnotify |
+| Example                            | Description                                                 |
+| ---------------------------------- | ----------------------------------------------------------- |
+| [basic](examples/basic/)           | Loading config with defaults, env overrides, and validation |
+| [dotenv](examples/dotenv/)         | Loading environment variables from .env files               |
+| [dsn](examples/dsn/)               | Composing connection strings using `dsn` tag                |
+| [refs](examples/refs/)             | External references with `ref` and `refFrom` tags           |
+| [scanner](examples/scanner/)       | Custom type conversion via `Scanner` interface              |
+| [setter](examples/setter/)         | Dynamic defaults via `Setter` interface                     |
+| [template](examples/template/)     | Go template processing for dynamic config                   |
+| [validation](examples/validation/) | Struct validation with `validate` tag                       |
+| [watcher](examples/watcher/)       | Hot-reload configuration with fsnotify                      |

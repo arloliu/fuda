@@ -1,0 +1,7 @@
+# Base configuration
+app_env: development
+log_level: info
+
+# Database defaults (can be overridden by .env)
+db_host: localhost
+db_port: 5432
