@@ -10,6 +10,7 @@ type Config struct {
     Password string        `ref:"file:///run/secrets/db_pass"`
     Token    string        `refFrom:"TokenPath"`
     Timeout  time.Duration `default:"30s"`
+    DSN      string        `dsn:"postgres://${.User}:${.Password}@${.Host}:5432/db"`
 }
 ```
 
@@ -20,9 +21,10 @@ type Config struct {
 | `ref` | Load from fixed URI | - |
 | `refFrom` | Load from URI in another field | - |
 | `default` | Fallback value | Lowest |
+| `dsn` | Compose connection string from fields | After default |
 | `validate` | Validation rules | After loading |
 
-**Priority order:** `env` > config file > `ref`/`refFrom` > `default`
+**Priority order:** `env` > config file > `ref`/`refFrom` > `default` > `dsn`
 
 ---
 
@@ -131,6 +133,146 @@ Bare paths are automatically prefixed with `file://`:
 | `https://example.com` | `https://example.com` |
 
 ---
+
+## `dsn` Tag
+
+Composes connection strings from other fields using template syntax with `${...}` delimiters.
+
+The `dsn` tag is processed **after** all other tags (`env`, `ref`, `default`), so referenced fields have their final values.
+
+### Template Syntax
+
+| Syntax | Description |
+|--------|-------------|
+| `${.FieldName}` | Value of a field in the same struct |
+| `${.Nested.Field}` | Nested struct field access |
+| `${ref:uri}` | Resolve a URI inline |
+| `${env:KEY}` | Read an environment variable |
+
+---
+
+### Example: Using Field References
+
+Compose DSN from other config fields:
+
+```go
+type Config struct {
+    DBHost     string `yaml:"host" default:"localhost"`
+    DBPort     int    `yaml:"port" default:"5432"`
+    DBName     string `yaml:"name" default:"myapp"`
+    DBUser     string `yaml:"user"`
+    DBPassword string `yaml:"password"`
+
+    // Compose from fields above
+    PostgresDSN string `dsn:"postgres://${.DBUser}:${.DBPassword}@${.DBHost}:${.DBPort}/${.DBName}"`
+}
+```
+
+---
+
+### Example: Using `${ref:uri}` for Secrets
+
+Resolve secrets inline without storing them in fields:
+
+```go
+type Config struct {
+    DBHost string `yaml:"host" default:"localhost"`
+
+    // Inline vault secret resolution
+    DSN string `dsn:"postgres://${ref:vault:///secret/data/db#user}:${ref:vault:///secret/data/db#pass}@${.DBHost}:5432/app"`
+}
+```
+
+Supported URI schemes for `${ref:...}`:
+- `file://` - Local files (e.g., Docker secrets)
+- `http://` / `https://` - HTTP endpoints
+- `vault://` - HashiCorp Vault (requires vault resolver)
+
+```go
+// Docker secrets
+DSN string `dsn:"postgres://admin:${ref:file:///run/secrets/db_password}@db:5432/app"`
+
+// File-based secret
+DSN string `dsn:"redis://:${ref:file://./secrets/redis.txt}@redis:6379/0"`
+```
+
+---
+
+### Example: Using `${env:KEY}` for Environment Variables
+
+Read environment variables inline:
+
+```go
+type Config struct {
+    DBHost string `yaml:"host" default:"localhost"`
+
+    // Mix env vars with field references
+    DSN string `dsn:"postgres://${env:DB_USER}:${env:DB_PASSWORD}@${.DBHost}:5432/app"`
+}
+```
+
+Environment variables respect the `WithEnvPrefix()` setting:
+
+```go
+// With WithEnvPrefix("APP_"):
+DSN string `dsn:"postgres://${env:DB_USER}@localhost:5432/db"`
+// ${env:DB_USER} reads APP_DB_USER
+```
+
+---
+
+### Example: Nested Struct Fields
+
+Access fields from nested structs:
+
+```go
+type Config struct {
+    Database struct {
+        Host string `yaml:"host" default:"localhost"`
+        User string `yaml:"user"`
+        Pass string `yaml:"password"`
+    } `yaml:"database"`
+
+    Redis struct {
+        Host string `yaml:"host" default:"localhost"`
+        Port int    `yaml:"port" default:"6379"`
+    } `yaml:"redis"`
+
+    PostgresDSN string `dsn:"postgres://${.Database.User}:${.Database.Pass}@${.Database.Host}:5432/app"`
+    RedisDSN    string `dsn:"redis://${.Redis.Host}:${.Redis.Port}/0"`
+}
+```
+
+---
+
+### Example: Mixed Sources
+
+Combine field references, secrets, and env vars:
+
+```go
+type Config struct {
+    DBHost string `yaml:"host" env:"DB_HOST" default:"localhost"`
+    DBPort int    `yaml:"port" default:"5432"`
+    DBName string `yaml:"name" default:"production"`
+
+    // User from env, password from vault, host/port from config
+    DSN string `dsn:"postgres://${env:DB_USER}:${ref:vault:///secret/db#password}@${.DBHost}:${.DBPort}/${.DBName}?sslmode=require"`
+}
+```
+
+---
+
+### Strict Mode
+
+By default, empty values produce empty strings (permissive). Enable strict mode to error on empty values:
+
+```go
+DSN string `dsn:"postgres://${.User}@${.Host}:5432/db" dsnStrict:"true"`
+```
+
+---
+
+
 
 ## `validate` Tag
 

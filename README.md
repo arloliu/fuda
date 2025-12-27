@@ -65,6 +65,7 @@ func main() {
 - **Default values** via `default` tag
 - **Environment overrides** via `env` tag with optional prefix
 - **External references** via `ref` and `refFrom` tags (file://, http://, https://, vault://)
+- **DSN composition** via `dsn` tag for building connection strings from fields
 - **HashiCorp Vault integration** via `fuda/vault` package (Token, Kubernetes, AppRole auth)
 - **Hot-reload configuration** via `fuda/watcher` package with fsnotify
 - **Template processing** via Go's `text/template` for dynamic configuration
@@ -124,6 +125,31 @@ Custom delimiters can be set if your config contains literal `{{` sequences:
 
 ```go
 WithTemplate(data, fuda.WithDelimiters("<{", "}>"))
+```
+
+### DSN Composition
+
+Build connection strings from config fields and secrets using the `dsn` tag:
+
+```go
+type Config struct {
+    DBHost     string `yaml:"host" default:"localhost"`
+    DBUser     string `env:"DB_USER"`
+    DBPassword string `ref:"vault:///secret/data/db#password"`
+
+    // Compose DSN from fields above, or inline secrets/env vars
+    DSN string `dsn:"postgres://${.DBUser}:${.DBPassword}@${.DBHost}:5432/app"`
+}
+```
+
+Inline secret and environment variable resolution:
+
+```go
+// Inline vault secret
+DSN string `dsn:"postgres://${ref:vault:///db#user}:${ref:vault:///db#pass}@host:5432/db"`
+
+// Inline environment variables
+DSN string `dsn:"redis://${env:REDIS_HOST}:${env:REDIS_PORT}/0"`
 ```
 
 ### Convenience Functions

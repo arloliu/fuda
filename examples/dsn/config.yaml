@@ -1,0 +1,10 @@
+# Database configuration
+database:
+  host: db.example.com
+  port: 5432
+  name: production
+
+# Redis configuration
+redis_host: redis.example.com
+redis_port: 6379
+redis_db: 1

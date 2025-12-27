@@ -205,5 +205,10 @@ func (e *Engine) applyTags(ctx context.Context, field reflect.StructField, field
 		return &types.FieldError{Path: field.Name, Tag: "default", Err: err}
 	}
 
+	// Process DSN templates (after all other tags, so referenced fields have their values)
+	if err := tags.ProcessDSN(ctx, field, fieldVal, parentVal, e.RefResolver, e.EnvPrefix); err != nil {
+		return &types.FieldError{Path: field.Name, Tag: "dsn", Err: err}
+	}
+
 	return nil
 }
