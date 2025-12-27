@@ -145,3 +145,19 @@ func TestDefaultsParity_Slices(t *testing.T) {
 	assert.Equal(t, creasty.SliceString, fudaVal.SliceString, "SliceString logic mismatch")
 	assert.Equal(t, creasty.SliceInt, fudaVal.SliceInt, "SliceInt logic mismatch")
 }
+
+func TestSetDefaults_TopLevel(t *testing.T) {
+	type SimpleConfig struct {
+		Host    string        `default:"localhost"`
+		Port    int           `default:"8080"`
+		Timeout time.Duration `default:"30s"`
+	}
+
+	var cfg SimpleConfig
+	err := fuda.SetDefaults(&cfg)
+	require.NoError(t, err)
+
+	assert.Equal(t, "localhost", cfg.Host)
+	assert.Equal(t, 8080, cfg.Port)
+	assert.Equal(t, 30*time.Second, cfg.Timeout)
+}

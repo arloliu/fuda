@@ -335,3 +335,87 @@ func LoadReader(r io.Reader, target any) error {
 
 	return l.Load(target)
 }
+
+// SetDefaults applies `default` tag values to the target struct.
+// Environment variables (via `env` tag) and references (`ref`, `refFrom`) are also resolved,
+// but no YAML/JSON source is processed.
+// This is equivalent to calling New().Build() then Load(), but shorter.
+//
+// Example:
+//
+//	type Config struct {
+//	    Host    string `default:"localhost"`
+//	    Timeout int    `default:"30"`
+//	}
+//
+//	var cfg Config
+//	if err := fuda.SetDefaults(&cfg); err != nil {
+//	    log.Fatal(err)
+//	}
+func SetDefaults(target any) error {
+	l, err := New().Build()
+	if err != nil {
+		return err
+	}
+
+	return l.Load(target)
+}
+
+// MustSetDefaults is like SetDefaults but panics on error.
+// Useful for package-level variable initialization.
+func MustSetDefaults(target any) {
+	if err := SetDefaults(target); err != nil {
+		panic("fuda: " + err.Error())
+	}
+}
+
+// MustLoadFile is like LoadFile but panics on error.
+// Useful for package-level variable initialization.
+func MustLoadFile(path string, target any) {
+	if err := LoadFile(path, target); err != nil {
+		panic("fuda: " + err.Error())
+	}
+}
+
+// MustLoadBytes is like LoadBytes but panics on error.
+// Useful for package-level variable initialization.
+func MustLoadBytes(data []byte, target any) {
+	if err := LoadBytes(data, target); err != nil {
+		panic("fuda: " + err.Error())
+	}
+}
+
+// MustLoadReader is like LoadReader but panics on error.
+// Useful for package-level variable initialization.
+func MustLoadReader(r io.Reader, target any) {
+	if err := LoadReader(r, target); err != nil {
+		panic("fuda: " + err.Error())
+	}
+}
+
+// Validate runs validation on target using the `validate` tag.
+// No loading, default processing, or env resolution occurs.
+// Only validation is performed.
+func Validate(target any) error {
+	v := validator.New()
+
+	return v.Struct(target)
+}
+
+// LoadEnv applies environment variables to target via `env` tags.
+// No file source is read and no defaults are applied.
+// Only env tag processing occurs.
+func LoadEnv(target any) error {
+	return LoadEnvWithPrefix("", target)
+}
+
+// LoadEnvWithPrefix is like LoadEnv but prepends prefix to env var names.
+// For example, with prefix "APP_", an `env:"HOST"` tag reads APP_HOST.
+func LoadEnvWithPrefix(prefix string, target any) error {
+	l, err := New().WithEnvPrefix(prefix).WithValidator(nil).Build()
+	if err != nil {
+		return err
+	}
+
+	return l.Load(target)
+}
