@@ -1,4 +1,4 @@
-package fuda_test
+package tests
 
 import (
 	"net/http"
@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type Config struct {
+type IntegrationConfig struct {
 	Host      string        `default:"localhost"`
 	Port      int           `default:"8080"`
 	Timeout   time.Duration `default:"10s"`
@@ -20,10 +20,10 @@ type Config struct {
 	APIKey    string        `env:"API_KEY"`
 	Remote    string        `refFrom:"RemoteRef"`
 	RemoteRef string
-	Database  DatabaseConfig `yaml:"database"`
+	Database  IntegrationDBConfig `yaml:"database"`
 }
 
-type DatabaseConfig struct {
+type IntegrationDBConfig struct {
 	User         string `default:"admin"`
 	Password     string `refFrom:"PasswordFile"`
 	PasswordFile string `default:"TEST_DB_PASSWORD"`
@@ -52,7 +52,7 @@ func TestLoad(t *testing.T) {
 	defer ts.Close()
 
 	// Test Case 1: Defaults, Ref, RefFrom, Env, Remote
-	var cfg Config
+	var cfg IntegrationConfig
 	cfg.RemoteRef = ts.URL // Set dynamic ref
 
 	loader, err := fuda.New().
@@ -85,7 +85,7 @@ database:
 	require.NoError(t, err)
 	defer os.Remove(configFile)
 
-	var cfg2 Config
+	var cfg2 IntegrationConfig
 	err = fuda.LoadFile(configFile, &cfg2)
 	require.NoError(t, err)
 

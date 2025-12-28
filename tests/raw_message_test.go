@@ -1,4 +1,4 @@
-package fuda_test
+package tests
 
 import (
 	"encoding/json"
