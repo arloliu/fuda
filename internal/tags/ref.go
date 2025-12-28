@@ -18,9 +18,18 @@ type Resolver interface {
 // ProcessRef processes 'ref' and 'refFrom' tags.
 //
 // The ref tag can contain template expressions using ${...} syntax:
+//
 //   - ${.FieldName} - references the value of a field in the same struct
+//
 //   - ${.Nested.Field} - references nested struct fields
+//
 //   - ${env:KEY} - reads an environment variable
+//
+//   - ${env:KEY} - reads an environment variable
+//
+// Priority:
+//  1. refFrom: If present and referenced field is non-empty, its value is used as URI.
+//  2. ref: Used as fallback if refFrom is absent or referenced field is empty.
 //
 // Note: Fields referenced in templates must appear earlier in the struct.
 //

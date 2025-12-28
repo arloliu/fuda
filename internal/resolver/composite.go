@@ -29,6 +29,7 @@ func New(fs afero.Fs) *CompositeResolver {
 	httpResolver := NewHTTPResolver()
 	cr.Register("http", httpResolver)
 	cr.Register("https", httpResolver)
+	cr.Register("env", NewEnvResolver())
 
 	return cr
 }

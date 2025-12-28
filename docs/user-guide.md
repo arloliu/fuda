@@ -203,8 +203,20 @@ type Config struct {
 
     // Local file
     License string `ref:"file://./license.txt"`
+
+    // Environment variable
+    SecretKey string `ref:"env://SECRET_KEY"`
 }
 ```
+
+### Supported Schemes
+
+| Scheme     | Description          |
+| ---------- | -------------------- |
+| `file://`  | Local file           |
+| `http://`  | HTTP endpoint        |
+| `https://` | HTTPS endpoint       |
+| `env://`   | Environment variable |
 
 ### Dynamic URI with Templates
 
@@ -238,6 +250,40 @@ Bare paths are auto-prefixed with `file://`:
 |-------|------------|
 | `/run/secrets/token` | `file:///run/secrets/token` |
 | `https://example.com/key` | `https://example.com/key` |
+| `env://MY_TOKEN` | `env://MY_TOKEN` |
+
+### Combined Usage (Fallback Pattern)
+
+You can use `ref` and `refFrom` together. `refFrom` takes precedence, and `ref` acts as a fallback default.
+
+```go
+type Config struct {
+    // If CustomPath is set, loads from there.
+    // If empty, loads from default path (file:///etc/config.json).
+    CustomPath string `env:"CONFIG_PATH"`
+    Config     string `ref:"file:///etc/config.json" refFrom:"CustomPath"`
+}
+```
+
+### `env://` Scheme
+
+Load values directly from environment variables using the `env://` scheme.
+
+```go
+type Config struct {
+    // Value from env var MY_API_KEY
+    APIKey string `ref:"env://MY_API_KEY"`
+
+    // Dynamic env var name
+    InternalToken string `ref:"env://${.AppName}_TOKEN"`
+
+    // Via refFrom (allows switching between file and env)
+    TokenPath string `yaml:"token_path" default:"env://DEFAULT_TOKEN"`
+    Token     string `refFrom:"TokenPath"`
+}
+```
+
+> **Note:** `env://` URIs are literal and do **not** respect `WithEnvPrefix()`. Use the full environment variable name. Unset variables result in an empty value.
 
 ### Timeout for Network Requests
 

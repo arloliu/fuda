@@ -135,11 +135,12 @@ type Config struct {
 
 ### Supported Schemes
 
-| Scheme     | Description    |
-| ---------- | -------------- |
-| `file://`  | Local file     |
-| `http://`  | HTTP endpoint  |
-| `https://` | HTTPS endpoint |
+| Scheme     | Description          |
+| ---------- | -------------------- |
+| `file://`  | Local file           |
+| `http://`  | HTTP endpoint        |
+| `https://` | HTTPS endpoint       |
+| `env://`   | Environment variable |
 
 ---
 
@@ -169,6 +170,19 @@ Bare paths are automatically prefixed with `file://`:
 | `/run/secrets/token`  | `file:///run/secrets/token` |
 | `file:///path`        | `file:///path`              |
 | `https://example.com` | `https://example.com`       |
+
+### Priority vs `ref` Tag
+
+If a field has both `ref` and `refFrom` tags:
+
+1. **`refFrom` takes precedence** if the referenced field has a value.
+2. **`ref` is used as a fallback** if the referenced field is empty.
+
+```go
+// Tries to load from TokenPath first.
+// If TokenPath is empty, falls back to loading from file:///run/secrets/token
+Token string `ref:"file:///run/secrets/token" refFrom:"TokenPath"`
+```
 
 ---
 

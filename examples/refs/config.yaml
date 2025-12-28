@@ -1,10 +1,10 @@
 # Configuration with external references
-app_name: "secrets-example"
+app_name: 'secrets-example'
 
 # Path to database password (used by refFrom)
-db_password_path: "file://secrets/db_password.txt"
+db_password_path: 'file://db_password.txt'
 
 # TLS configuration with dynamic paths
 tls:
-  cert_path: "file://secrets/server.crt"
-  key_path: "file://secrets/server.key"
+    cert_path: 'file://server.crt'
+    key_path: 'file://server.key'
