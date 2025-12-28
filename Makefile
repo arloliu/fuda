@@ -15,7 +15,7 @@ TEST_DIRS       := $(sort $(dir $(shell find . -name "*_test.go" -not -path "./v
 INTEGRATION_DIR := ./test/integration/...
 STRESS_DIR      := ./test/stress/...
 LATEST_GIT_TAG       := $(shell git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || echo "v0.0.0")
-LATEST_VAULT_GIT_TAG := $(shell git describe --tags --abbrev=0 --match 'vault/v*' 2>/dev/null || echo "vault/v0.0.0")
+LATEST_VAULT_GIT_TAG := $(shell git describe --tags --abbrev=0 --match 'vault/v*' 2>/dev/null | sed 's|^vault/||' || echo "v0.0.0")
 
 # KPI long-run defaults (overridable): set TRIALS on invocation to change
 TRIALS ?= 500
@@ -131,10 +131,10 @@ update-pkg-cache:
 	@echo "Updating package cache..."
 	@echo "  -> fuda $(LATEST_GIT_TAG)"
 	@curl -sf https://proxy.golang.org/github.com/arloliu/fuda/@v/$(LATEST_GIT_TAG).info > /dev/null || \
-		echo "Warning: Failed to update fuda package cache"
+		echo "Warning: Failed to update fuda $(LATEST_GIT_TAG) package cache"
 	@echo "  -> fuda/vault $(LATEST_VAULT_GIT_TAG)"
 	@curl -sf https://proxy.golang.org/github.com/arloliu/fuda/vault/@v/$(LATEST_VAULT_GIT_TAG).info > /dev/null || \
-		echo "Warning: Failed to update vault package cache"
+		echo "Warning: Failed to update vault $(LATEST_VAULT_GIT_TAG) package cache"
 
 ##@ Cleanup
 
