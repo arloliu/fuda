@@ -78,6 +78,7 @@ func main() {
 
 ## Documentation
 
+- **[User Guide](docs/user-guide.md)** - Complete guide with examples for all features
 - **[Tag Specification](docs/tag-spec.md)** - Complete reference for all struct tags
 - **[Setter & Scanner](docs/setter-scanner.md)** - Custom type conversion and dynamic defaults
 - **[Custom Resolvers](docs/custom-resolvers.md)** - Implementing custom reference resolvers
