@@ -2,7 +2,7 @@
 # Usage: make [target]
 
 # Configuration
-TEST_TIMEOUT    ?= 6m
+TEST_TIMEOUT    ?= 3m
 LINT_TIMEOUT    ?= 3m
 COVERAGE_DIR    := ./.coverage
 COVERAGE_OUT    := $(COVERAGE_DIR)/coverage.out
@@ -13,9 +13,6 @@ ALL_GO_FILES    := $(shell find . -name "*.go")
 LATEST_GIT_TAG       := $(shell git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || echo "v0.0.0")
 LATEST_VAULT_GIT_TAG := $(shell git describe --tags --abbrev=0 --match 'vault/v*' 2>/dev/null | sed 's|^vault/||' || echo "v0.0.0")
 
-# KPI long-run defaults (overridable): set TRIALS on invocation to change
-TRIALS ?= 500
-
 # Linter configuration
 LINTER_GOMOD          := -modfile=linter.go.mod
 GOLANGCI_LINT_VERSION := 2.5.0
@@ -23,14 +20,13 @@ GOLANGCI_LINT_VERSION := 2.5.0
 # Default target
 .DEFAULT_GOAL := help
 
-.PHONY: help test test-short clean-test-results lint fmt vet clean gomod-tidy update-pkg-cache ci
+.PHONY: help test test-vault test-quick coverage clean-test-results lint fmt vet clean gomod-tidy update-pkg-cache ci
 
 ## help: Show this help message
 help:
 	@echo "Available targets:" && \
 	grep -E '^## ' $(MAKEFILE_LIST) | sed 's/^## /  /'
 
-## test: Run unit tests for all modules with race detector
 ## test: Run all tests (unit + integration + vault)
 test: clean-test-results
 	@echo "Running tests..."
@@ -51,16 +47,21 @@ test-quick: clean-test-results
 	@CGO_ENABLED=0 go test ./... -short -timeout=$(TEST_TIMEOUT)
 	@cd vault && CGO_ENABLED=0 go test ./... -short -timeout=$(TEST_TIMEOUT)
 
-## test-unit: Alias for test
-test-unit: test
-
-## test-all: Alias for test
-test-all: test
-
+## clean-test-results: Clean test artifacts
 ## clean-test-results: Clean test artifacts
 clean-test-results:
 	@rm -f test.log *.pprof
 	@go clean -testcache
+	@rm -rf $(COVERAGE_DIR)
+
+## coverage: Run tests with coverage
+coverage: clean-test-results
+	@echo "Running tests with coverage..."
+	@mkdir -p $(COVERAGE_DIR)
+	@echo "  -> fuda (root module)"
+	@CGO_ENABLED=1 go test ./... -timeout=$(TEST_TIMEOUT) -race -coverprofile=$(COVERAGE_OUT) -covermode=atomic
+	@go tool cover -html=$(COVERAGE_OUT) -o $(COVERAGE_HTML)
+	@echo "Coverage report generated at $(COVERAGE_HTML)"
 
 ##@ Code Quality
 
@@ -99,9 +100,11 @@ fmt:
 	@goimports -w $(ALL_GO_FILES)
 
 ## vet: Run go vet
+## vet: Run go vet
 vet:
 	@echo "Running go vet..."
 	@go vet ./...
+	@cd vault && go vet ./...
 
 ##@ Build & Dependencies
 
@@ -135,4 +138,4 @@ clean: clean-test-results
 ##@ CI/CD
 
 ## ci: Run all CI checks (lint, test, coverage)
-ci: lint vet test-all coverage
+ci: lint vet test coverage
