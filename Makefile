@@ -3,17 +3,13 @@
 
 # Configuration
 TEST_TIMEOUT    ?= 6m
-STRESS_TIMEOUT  ?= 20m
 LINT_TIMEOUT    ?= 3m
 COVERAGE_DIR    := ./.coverage
 COVERAGE_OUT    := $(COVERAGE_DIR)/coverage.out
 COVERAGE_HTML   := $(COVERAGE_DIR)/coverage.html
 
 # Source files
-ALL_GO_FILES    := $(shell find . -name "*.go" -not -path "./vendor/*")
-TEST_DIRS       := $(sort $(dir $(shell find . -name "*_test.go" -not -path "./vendor/*" -not -path "./vault/*" -not -path "./test/integration/*" -not -path "./test/stress/*")))
-INTEGRATION_DIR := ./test/integration/...
-STRESS_DIR      := ./test/stress/...
+ALL_GO_FILES    := $(shell find . -name "*.go")
 LATEST_GIT_TAG       := $(shell git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || echo "v0.0.0")
 LATEST_VAULT_GIT_TAG := $(shell git describe --tags --abbrev=0 --match 'vault/v*' 2>/dev/null | sed 's|^vault/||' || echo "v0.0.0")
 
@@ -35,39 +31,31 @@ help:
 	grep -E '^## ' $(MAKEFILE_LIST) | sed 's/^## /  /'
 
 ## test: Run unit tests for all modules with race detector
+## test: Run all tests (unit + integration + vault)
 test: clean-test-results
-	@echo "Running unit tests with race detector..."
-	@echo "  -> fuda (root)"
-	@CGO_ENABLED=1 go test $(TEST_DIRS) -timeout=$(TEST_TIMEOUT) -race || (echo "Tests failed with race detector" && exit 1)
+	@echo "Running tests..."
+	@echo "  -> fuda (root module)"
+	@CGO_ENABLED=1 go test ./... -timeout=$(TEST_TIMEOUT) -race
 	@echo "  -> fuda/vault"
-	@cd vault && CGO_ENABLED=1 go test ./... -timeout=$(TEST_TIMEOUT) -race || (echo "Vault tests failed" && exit 1)
-	@echo "All unit tests passed!"
+	@cd vault && CGO_ENABLED=1 go test ./... -timeout=$(TEST_TIMEOUT) -race
+	@echo "All tests passed!"
 
 ## test-vault: Run only vault package tests
 test-vault: clean-test-results
 	@echo "Running vault tests..."
 	@cd vault && CGO_ENABLED=1 go test ./... -v -timeout=$(TEST_TIMEOUT) -race
 
+## test-quick: Run tests without race detection (fast)
 test-quick: clean-test-results
-	@echo "Running unit tests without race detection..."
-	@CGO_ENABLED=0 go test $(TEST_DIRS) -short -timeout=$(TEST_TIMEOUT)
+	@echo "Running tests without race detection..."
+	@CGO_ENABLED=0 go test ./... -short -timeout=$(TEST_TIMEOUT)
 	@cd vault && CGO_ENABLED=0 go test ./... -short -timeout=$(TEST_TIMEOUT)
 
-## test-unit: Run only unit tests (fast, same as test-short)
-test-unit: clean-test-results
-	@echo "Running unit tests..."
-	@CGO_ENABLED=1 go test $(TEST_DIRS) -timeout=$(TEST_TIMEOUT) -race
-	@cd vault && CGO_ENABLED=1 go test ./... -timeout=$(TEST_TIMEOUT) -race
+## test-unit: Alias for test
+test-unit: test
 
-## test-all: Run unit, integration, and stress tests
-test-all: clean-test-results
-	@echo "Running all tests (unit + integration + stress)..."
-	@echo "==> Running unit tests..."
-	@CGO_ENABLED=1 go test $(TEST_DIRS) -timeout=$(TEST_TIMEOUT) -race
-	@cd vault && CGO_ENABLED=1 go test ./... -timeout=$(TEST_TIMEOUT) -race
-	@echo "==> Running integration tests..."
-	@CGO_ENABLED=1 go test $(INTEGRATION_DIR) -v -timeout=$(TEST_TIMEOUT) -race
-	@echo "All tests passed!"
+## test-all: Alias for test
+test-all: test
 
 ## clean-test-results: Clean test artifacts
 clean-test-results:
