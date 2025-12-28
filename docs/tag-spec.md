@@ -18,7 +18,7 @@ type Config struct {
 | ------------- | ------------------------------------- | ------------- |
 | `env`         | Environment variable override         | Highest       |
 | `yaml`/`json` | Config file key                       | -             |
-| `ref`         | Load from fixed URI                   | -             |
+| `ref`         | Load from URI (supports templates)    | -             |
 | `refFrom`     | Load from URI in another field        | -             |
 | `default`     | Fallback value                        | Lowest        |
 | `dsn`         | Compose connection string from fields | After default |
@@ -104,7 +104,9 @@ With prefix `APP_`:
 
 ## `ref` Tag
 
-Loads a value from a fixed URI (only if field is zero).
+Loads a value from a URI (only if field is zero). Supports [template syntax](#template-syntax) for dynamic URIs.
+
+### Basic Usage
 
 ```go
 // From file
@@ -113,6 +115,23 @@ Password string `ref:"file:///run/secrets/db_password"`
 // From HTTP
 APIKey string `ref:"https://vault.example.com/v1/secrets/api_key"`
 ```
+
+### Dynamic URI with Templates
+
+Compose URIs from other fields using `${...}` syntax:
+
+```go
+type Config struct {
+    SecretDir string `yaml:"secretDir" default:"/etc/secrets"`
+    Fab       string `yaml:"fab" validate:"required"`
+    Account   string `yaml:"account" validate:"required"`
+
+    // Dynamic path composed from fields above
+    Password string `ref:"file://${.SecretDir}/tcs-${.Fab}-${.Account}-password"`
+}
+```
+
+> **Note:** Referenced fields must appear **earlier** in the struct to have their values available.
 
 ### Supported Schemes
 
@@ -139,6 +158,8 @@ type Config struct {
 token_path: '/run/secrets/app_token'
 ```
 
+> **Note:** The referenced field must be a **string** type.
+
 ### Path Normalization
 
 Bare paths are automatically prefixed with `file://`:
@@ -151,97 +172,94 @@ Bare paths are automatically prefixed with `file://`:
 
 ---
 
-## `dsn` Tag
+## Template Syntax
 
-Composes connection strings from other fields using template syntax with `${...}` delimiters.
+Both `ref` and `dsn` tags support a template syntax using `${...}` delimiters. Templates are processed using Go's `text/template` with custom delimiters.
 
-The `dsn` tag is processed **after** all other tags (`env`, `ref`, `default`), so referenced fields have their final values.
+### Expressions
 
-### Template Syntax
+| Syntax             | Description                         | Example                     |
+| ------------------ | ----------------------------------- | --------------------------- |
+| `${.FieldName}`    | Value of a field in the same struct | `${.Host}`, `${.Port}`      |
+| `${.Nested.Field}` | Nested struct field access          | `${.Database.Host}`         |
+| `${ref:uri}`       | Resolve a URI inline                | `${ref:file:///secret.txt}` |
+| `${env:KEY}`       | Read an environment variable        | `${env:DB_USER}`            |
 
-| Syntax             | Description                         |
-| ------------------ | ----------------------------------- |
-| `${.FieldName}`    | Value of a field in the same struct |
-| `${.Nested.Field}` | Nested struct field access          |
-| `${ref:uri}`       | Resolve a URI inline                |
-| `${env:KEY}`       | Read an environment variable        |
+### Field Ordering Constraint
 
----
-
-### Example: Using Field References
-
-Compose DSN from other config fields:
+> **Important:** Fields referenced in templates must appear **earlier** in the struct definition. This is because fields are processed sequentially in declaration order.
 
 ```go
+// ✅ Correct: SecretDir is defined before Password
 type Config struct {
-    DBHost     string `yaml:"host" default:"localhost"`
-    DBPort     int    `yaml:"port" default:"5432"`
-    DBName     string `yaml:"name" default:"myapp"`
-    DBUser     string `yaml:"user"`
-    DBPassword string `yaml:"password"`
+    SecretDir string `default:"/etc/secrets"`       // Field 0
+    Password  string `ref:"file://${.SecretDir}/pass"` // Field 1 - can see Field 0
+}
 
-    // Compose from fields above
-    PostgresDSN string `dsn:"postgres://${.DBUser}:${.DBPassword}@${.DBHost}:${.DBPort}/${.DBName}"`
+// ❌ Wrong: Password defined before SecretDir
+type Config struct {
+    Password  string `ref:"file://${.SecretDir}/pass"` // Field 0 - SecretDir is empty!
+    SecretDir string `default:"/etc/secrets"`       // Field 1
 }
 ```
 
----
+### Inline URI Resolution with `${ref:uri}`
 
-### Example: Using `${ref:uri}` for Secrets
-
-Resolve secrets inline without storing them in fields:
-
-```go
-type Config struct {
-    DBHost string `yaml:"host" default:"localhost"`
-
-    // Inline vault secret resolution
-    DSN string `dsn:"postgres://${ref:vault:///secret/data/db#user}:${ref:vault:///secret/data/db#pass}@${.DBHost}:5432/app"`
-}
-```
-
-Supported URI schemes for `${ref:...}`:
-
-- `file://` - Local files (e.g., Docker secrets)
-- `http://` / `https://` - HTTP endpoints
-- `vault://` - HashiCorp Vault (requires vault resolver)
+Resolve external URIs inline without storing them in fields:
 
 ```go
 // Docker secrets
 DSN string `dsn:"postgres://admin:${ref:file:///run/secrets/db_password}@db:5432/app"`
 
-// File-based secret
-DSN string `dsn:"redis://:${ref:file://./secrets/redis.txt}@redis:6379/0"`
+// Vault secrets
+DSN string `dsn:"postgres://${ref:vault:///secret/db#user}:${ref:vault:///secret/db#pass}@localhost/db"`
 ```
 
----
-
-### Example: Using `${env:KEY}` for Environment Variables
+### Inline Environment Variables with `${env:KEY}`
 
 Read environment variables inline:
 
 ```go
-type Config struct {
-    DBHost string `yaml:"host" default:"localhost"`
-
-    // Mix env vars with field references
-    DSN string `dsn:"postgres://${env:DB_USER}:${env:DB_PASSWORD}@${.DBHost}:5432/app"`
-}
+DSN string `dsn:"postgres://${env:DB_USER}:${env:DB_PASSWORD}@${.Host}:5432/app"`
 ```
 
 Environment variables respect the `WithEnvPrefix()` setting:
 
 ```go
 // With WithEnvPrefix("APP_"):
-DSN string `dsn:"postgres://${env:DB_USER}@localhost:5432/db"`
 // ${env:DB_USER} reads APP_DB_USER
+```
+
+### Strict Mode (DSN only)
+
+By default, empty values produce empty strings. Enable strict mode to error on missing values:
+
+```go
+DSN string `dsn:"postgres://${.User}@${.Host}:5432/db" dsnStrict:"true"`
 ```
 
 ---
 
-### Example: Nested Struct Fields
+## `dsn` Tag
 
-Access fields from nested structs:
+Composes connection strings from other fields using [template syntax](#template-syntax).
+
+The `dsn` tag is processed **after** all other tags (`env`, `ref`, `default`), so referenced fields have their final values.
+
+### Basic Example
+
+```go
+type Config struct {
+    DBHost     string `yaml:"host" default:"localhost"`
+    DBPort     int    `yaml:"port" default:"5432"`
+    DBUser     string `yaml:"user"`
+    DBPassword string `yaml:"password"`
+
+    PostgresDSN string `dsn:"postgres://${.DBUser}:${.DBPassword}@${.DBHost}:${.DBPort}/mydb"`
+}
+```
+
+### Nested Struct Fields
 
 ```go
 type Config struct {
@@ -251,19 +269,11 @@ type Config struct {
         Pass string `yaml:"password"`
     } `yaml:"database"`
 
-    Redis struct {
-        Host string `yaml:"host" default:"localhost"`
-        Port int    `yaml:"port" default:"6379"`
-    } `yaml:"redis"`
-
     PostgresDSN string `dsn:"postgres://${.Database.User}:${.Database.Pass}@${.Database.Host}:5432/app"`
-    RedisDSN    string `dsn:"redis://${.Redis.Host}:${.Redis.Port}/0"`
 }
 ```
 
----
-
-### Example: Mixed Sources
+### Mixed Sources
 
 Combine field references, secrets, and env vars:
 
@@ -276,16 +286,6 @@ type Config struct {
     // User from env, password from vault, host/port from config
     DSN string `dsn:"postgres://${env:DB_USER}:${ref:vault:///secret/db#password}@${.DBHost}:${.DBPort}/${.DBName}?sslmode=require"`
 }
-```
-
----
-
-### Strict Mode
-
-By default, empty values produce empty strings (permissive). Enable strict mode to error on empty values:
-
-```go
-DSN string `dsn:"postgres://${.User}@${.Host}:5432/db" dsnStrict:"true"`
 ```
 
 ---
