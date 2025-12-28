@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
+	"github.com/spf13/afero"
 )
 
 type SubResolver interface {
@@ -17,11 +19,12 @@ type CompositeResolver struct {
 }
 
 // New creates a new CompositeResolver with default sub-resolvers.
-func New() *CompositeResolver {
+// If fs is nil, the OS filesystem is used for file:// resolution.
+func New(fs afero.Fs) *CompositeResolver {
 	cr := &CompositeResolver{
 		resolvers: make(map[string]SubResolver),
 	}
-	cr.Register("file", NewFileResolver())
+	cr.Register("file", NewFileResolver(fs))
 
 	httpResolver := NewHTTPResolver()
 	cr.Register("http", httpResolver)

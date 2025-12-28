@@ -31,7 +31,6 @@ package fuda
 
 import (
 	"io"
-	"os"
 	"reflect"
 	"text/template"
 	"time"
@@ -39,6 +38,7 @@ import (
 	"github.com/arloliu/fuda/internal/loader"
 	"github.com/arloliu/fuda/internal/resolver"
 	"github.com/go-playground/validator/v10"
+	"github.com/spf13/afero"
 )
 
 // Loader is responsible for loading configuration from various sources.
@@ -50,6 +50,7 @@ type Loader struct {
 
 // loaderConfig holds the configuration for the loader.
 type loaderConfig struct {
+	fs           afero.Fs // Filesystem for file operations
 	envPrefix    string
 	validator    *validator.Validate
 	refResolver  RefResolver
@@ -149,7 +150,12 @@ func (b *Builder) FromFile(path string) *Builder {
 		return b
 	}
 
-	data, err := os.ReadFile(path)
+	fs := b.config.fs
+	if fs == nil {
+		fs = DefaultFs
+	}
+
+	data, err := afero.ReadFile(fs, path)
 	if err != nil {
 		b.err = err
 
@@ -211,6 +217,23 @@ func (b *Builder) WithValidator(v *validator.Validate) *Builder {
 // The default resolver supports file://, http://, and https:// schemes.
 func (b *Builder) WithRefResolver(r RefResolver) *Builder {
 	b.config.refResolver = r
+
+	return b
+}
+
+// WithFilesystem sets a custom filesystem for file operations.
+// This is useful for testing with in-memory filesystems.
+//
+// Example:
+//
+//	memFs := afero.NewMemMapFs()
+//	afero.WriteFile(memFs, "/config.yaml", []byte("host: localhost"), 0644)
+//	loader, _ := fuda.New().
+//	    WithFilesystem(memFs).
+//	    FromFile("/config.yaml").
+//	    Build()
+func (b *Builder) WithFilesystem(fs afero.Fs) *Builder {
+	b.config.fs = fs
 
 	return b
 }
@@ -356,7 +379,11 @@ func (b *Builder) Build() (*Loader, error) {
 	// Use default resolver if not provided
 	refResolver := b.config.refResolver
 	if refResolver == nil {
-		refResolver = resolver.New()
+		fs := b.config.fs
+		if fs == nil {
+			fs = DefaultFs
+		}
+		refResolver = resolver.New(fs)
 	}
 
 	return &Loader{

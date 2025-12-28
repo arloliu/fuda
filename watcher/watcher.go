@@ -43,13 +43,14 @@
 package watcher
 
 import (
-	"os"
 	"reflect"
 	"sync"
 	"time"
 
 	"github.com/arloliu/fuda"
 	"github.com/fsnotify/fsnotify"
+	"github.com/go-playground/validator/v10"
+	"github.com/spf13/afero"
 )
 
 // Watcher monitors configuration sources and emits updates when changes occur.
@@ -66,6 +67,7 @@ type Watcher struct {
 	lastConfig    any
 	configPath    string
 	configContent []byte
+	fs            afero.Fs
 }
 
 // watcherConfig holds internal configuration for the watcher.
@@ -224,7 +226,11 @@ func (w *Watcher) watchLoop(target any) {
 func (w *Watcher) reloadIfChanged(target any) bool {
 	// For file-based config, check if content changed
 	if w.configPath != "" {
-		content, err := os.ReadFile(w.configPath)
+		fs := w.fs
+		if fs == nil {
+			fs = fuda.DefaultFs
+		}
+		content, err := afero.ReadFile(fs, w.configPath)
 		if err != nil {
 			return false
 		}
@@ -246,12 +252,17 @@ func (w *Watcher) reloadIfChanged(target any) bool {
 	var loadErr error
 	if w.configPath != "" && len(w.configContent) > 0 {
 		// Create a new loader with the updated content
-		builder := fuda.New().FromBytes(w.configContent)
+		builder := fuda.New().WithFilesystem(w.fs).FromBytes(w.configContent)
 		if w.config.envPrefix != "" {
 			builder = builder.WithEnvPrefix(w.config.envPrefix)
 		}
 		if w.config.refResolver != nil {
 			builder = builder.WithRefResolver(w.config.refResolver)
+		}
+		if w.config.validator != nil {
+			if v, ok := w.config.validator.(*validator.Validate); ok {
+				builder = builder.WithValidator(v)
+			}
 		}
 		freshLoader, err := builder.Build()
 		if err != nil {

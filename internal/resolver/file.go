@@ -4,15 +4,23 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"os"
+
+	"github.com/spf13/afero"
 )
 
 // FileResolver resolves references using the file:// scheme.
-type FileResolver struct{}
+type FileResolver struct {
+	fs afero.Fs
+}
 
 // NewFileResolver creates a new FileResolver.
-func NewFileResolver() *FileResolver {
-	return &FileResolver{}
+// If fs is nil, the OS filesystem is used.
+func NewFileResolver(fs afero.Fs) *FileResolver {
+	if fs == nil {
+		fs = afero.NewOsFs()
+	}
+
+	return &FileResolver{fs: fs}
 }
 
 // Resolve reads the file at the given URI.
@@ -41,5 +49,5 @@ func (r *FileResolver) Resolve(ctx context.Context, uri string) ([]byte, error) 
 		return nil, err
 	}
 
-	return os.ReadFile(path)
+	return afero.ReadFile(r.fs, path)
 }

@@ -18,9 +18,10 @@ This guide covers fuda's features with practical examples. For quick reference, 
 10. [Dynamic Defaults (Setter)](#dynamic-defaults-setter)
 11. [Vault Integration](#vault-integration)
 12. [Hot-Reload Configuration](#hot-reload-configuration)
-13. [Error Handling](#error-handling)
-14. [Real-World Patterns](#real-world-patterns)
-15. [FAQ / Troubleshooting](#faq--troubleshooting)
+13. [Custom Filesystem (Testing)](#custom-filesystem-testing)
+14. [Error Handling](#error-handling)
+15. [Real-World Patterns](#real-world-patterns)
+16. [FAQ / Troubleshooting](#faq--troubleshooting)
 
 ---
 
@@ -639,6 +640,76 @@ func main() {
 | Vault, HTTP refs            | Polling (configurable interval) |
 
 → See [Config Watcher Guide](config-watcher.md) for details.
+
+---
+
+## Custom Filesystem (Testing)
+
+Fuda uses [afero](https://github.com/spf13/afero) for filesystem abstraction, making it easy to test configuration loading with in-memory filesystems.
+
+### Per-Loader Filesystem
+
+```go
+import "github.com/spf13/afero"
+
+func TestMyConfig(t *testing.T) {
+    // Create in-memory filesystem
+    memFs := afero.NewMemMapFs()
+
+    // Create config and secret files in memory
+    afero.WriteFile(memFs, "/config.yaml", []byte(`
+host: localhost
+port: 8080
+`), 0644)
+    afero.WriteFile(memFs, "/secrets/password.txt", []byte("secret123"), 0644)
+
+    type Config struct {
+        Host     string `yaml:"host"`
+        Port     int    `yaml:"port"`
+        Password string `ref:"file:///secrets/password.txt"`
+    }
+
+    // Load using memory filesystem
+    loader, _ := fuda.New().
+        WithFilesystem(memFs).
+        FromFile("/config.yaml").
+        Build()
+
+    var cfg Config
+    err := loader.Load(&cfg)
+    require.NoError(t, err)
+    assert.Equal(t, "localhost", cfg.Host)
+    assert.Equal(t, "secret123", cfg.Password)
+}
+```
+
+### Global Default Filesystem
+
+For test suites where all tests should use the same filesystem:
+
+```go
+func TestMain(m *testing.M) {
+    // Setup global memory filesystem
+    fuda.SetDefaultFs(afero.NewMemMapFs())
+    defer fuda.ResetDefaultFs()
+
+    m.Run()
+}
+```
+
+### Watcher with Custom Filesystem
+
+The watcher package also supports custom filesystems:
+
+```go
+memFs := afero.NewMemMapFs()
+afero.WriteFile(memFs, "/config.yaml", configData, 0644)
+
+w, _ := watcher.New().
+    WithFilesystem(memFs).
+    FromFile("/config.yaml").
+    Build()
+```
 
 ---
 

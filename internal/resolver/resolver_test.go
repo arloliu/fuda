@@ -16,7 +16,7 @@ import (
 )
 
 func TestFileResolver(t *testing.T) {
-	r := resolver.NewFileResolver()
+	r := resolver.NewFileResolver(nil)
 	ctx := context.Background()
 
 	t.Run("valid file", func(t *testing.T) {
@@ -98,7 +98,7 @@ func TestHTTPResolver(t *testing.T) {
 }
 
 func TestCompositeResolver(t *testing.T) {
-	r := resolver.New()
+	r := resolver.New(nil)
 	ctx := context.Background()
 
 	t.Run("default schemes", func(_ *testing.T) {

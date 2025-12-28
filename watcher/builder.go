@@ -2,11 +2,11 @@ package watcher
 
 import (
 	"io"
-	"os"
 	"time"
 
 	"github.com/arloliu/fuda"
 	"github.com/go-playground/validator/v10"
+	"github.com/spf13/afero"
 )
 
 // Builder provides a fluent API for constructing a Watcher.
@@ -15,6 +15,7 @@ type Builder struct {
 	source []byte
 	path   string
 	err    error
+	fs     afero.Fs
 }
 
 // FromFile sets the configuration file to watch.
@@ -24,7 +25,12 @@ func (b *Builder) FromFile(path string) *Builder {
 		return b
 	}
 
-	data, err := os.ReadFile(path)
+	fs := b.fs
+	if fs == nil {
+		fs = fuda.DefaultFs
+	}
+
+	data, err := afero.ReadFile(fs, path)
 	if err != nil {
 		b.err = err
 		return b
@@ -112,14 +118,26 @@ func (b *Builder) WithAutoRenewLease() *Builder {
 	return b
 }
 
+// WithFilesystem sets a custom filesystem for file operations.
+// This is useful for testing with in-memory filesystems.
+func (b *Builder) WithFilesystem(fs afero.Fs) *Builder {
+	b.fs = fs
+	return b
+}
+
 // Build creates the Watcher with the configured options.
 func (b *Builder) Build() (*Watcher, error) {
 	if b.err != nil {
 		return nil, b.err
 	}
 
+	fs := b.fs
+	if fs == nil {
+		fs = fuda.DefaultFs
+	}
+
 	// Create the underlying fuda.Loader
-	loaderBuilder := fuda.New()
+	loaderBuilder := fuda.New().WithFilesystem(fs)
 
 	if b.path != "" {
 		loaderBuilder = loaderBuilder.FromFile(b.path)
@@ -151,5 +169,6 @@ func (b *Builder) Build() (*Watcher, error) {
 		config:        b.config,
 		configPath:    b.path,
 		configContent: b.source,
+		fs:            fs,
 	}, nil
 }

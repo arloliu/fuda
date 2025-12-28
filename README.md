@@ -70,6 +70,7 @@ func main() {
 - **HashiCorp Vault integration** via `fuda/vault` package (Token, Kubernetes, AppRole auth)
 - **Hot-reload configuration** via `fuda/watcher` package with fsnotify
 - **Template processing** via Go's `text/template` for dynamic configuration
+- **Testable filesystem** via [afero](https://github.com/spf13/afero) abstraction for easy testing with in-memory filesystems
 - **Custom type conversion** via `Scanner` interface
 - **Dynamic defaults** via `Setter` interface
 - **Duration type** with human-friendly parsing (e.g., `"30s"`, `"5m"`, `"1h30m"`, `"7d"`)
@@ -93,6 +94,7 @@ func main() {
 loader, err := fuda.New().
     FromFile("config.yaml").           // or FromBytes(), FromReader()
     WithEnvPrefix("APP_").             // optional: prefix for env vars
+    WithFilesystem(memFs).             // optional: custom filesystem (afero)
     WithDotEnv(".env").                // optional: load .env file
     WithTimeout(10 * time.Second).     // optional: timeout for ref resolution
     WithValidator(customValidator).    // optional: custom validator
