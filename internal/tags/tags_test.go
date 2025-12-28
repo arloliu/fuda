@@ -106,7 +106,7 @@ func TestProcessRef(t *testing.T) {
 	t.Run("ref tag", func(t *testing.T) {
 		field, _ := typ.FieldByName("RefField")
 		val := v.FieldByName("RefField")
-		err := tags.ProcessRef(ctx, field, val, v, resolver)
+		err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
 		require.NoError(t, err)
 		assert.Equal(t, "resolved_content", s.RefField)
 	})
@@ -120,7 +120,7 @@ func TestProcessRef(t *testing.T) {
 		field, _ := typ.FieldByName("RefFrom")
 		val := v.FieldByName("RefFrom") // RefFrom field
 
-		err := tags.ProcessRef(ctx, field, val, v, resolver)
+		err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
 		require.NoError(t, err)
 		assert.Equal(t, "resolved_content", s.RefFrom)
 	})
@@ -132,8 +132,148 @@ func TestProcessRef(t *testing.T) {
 		field, _ := typ.FieldByName("RefFrom")
 		val := v.FieldByName("RefFrom")
 
-		err := tags.ProcessRef(ctx, field, val, v, resolver)
+		err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
 		require.NoError(t, err)
 		assert.Equal(t, "resolved_content", s.RefFrom)
+	})
+}
+
+// Test struct for ref template tests
+type RefTemplateStruct struct {
+	SecretDir string `default:"/etc/secrets"`
+	Account   string `default:"admin"`
+	Password  string `ref:"file://${.SecretDir}/${.Account}-password"`
+}
+
+type RefTemplateNestedDatabase struct {
+	CredDir string
+}
+
+type RefTemplateNestedStruct struct {
+	Database RefTemplateNestedDatabase
+	Account  string
+	Password string `ref:"file://${.Database.CredDir}/${.Account}-password"`
+}
+
+type RefTemplateEnvStruct struct {
+	FileName string
+	Content  string `ref:"file://${env:TEST_REF_DIR}/${.FileName}"`
+}
+
+func TestProcessRef_Template(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("template with field references", func(t *testing.T) {
+		s := RefTemplateStruct{
+			SecretDir: "/data/secrets",
+			Account:   "myuser",
+		}
+		v := reflect.ValueOf(&s).Elem()
+		typ := v.Type()
+
+		resolver := &mockResolver{
+			data: map[string][]byte{
+				"file:///data/secrets/myuser-password": []byte("secret123"),
+			},
+		}
+
+		field, _ := typ.FieldByName("Password")
+		val := v.FieldByName("Password")
+
+		err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
+		require.NoError(t, err)
+		assert.Equal(t, "secret123", s.Password)
+	})
+
+	t.Run("template with nested field references", func(t *testing.T) {
+		s := RefTemplateNestedStruct{
+			Account: "testuser",
+		}
+		s.Database.CredDir = "/var/creds"
+
+		v := reflect.ValueOf(&s).Elem()
+		typ := v.Type()
+
+		resolver := &mockResolver{
+			data: map[string][]byte{
+				"file:///var/creds/testuser-password": []byte("nestedpass"),
+			},
+		}
+
+		field, _ := typ.FieldByName("Password")
+		val := v.FieldByName("Password")
+
+		err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
+		require.NoError(t, err)
+		assert.Equal(t, "nestedpass", s.Password)
+	})
+
+	t.Run("template with env function", func(t *testing.T) {
+		t.Setenv("TEST_REF_DIR", "/secrets")
+
+		s := RefTemplateEnvStruct{
+			FileName: "password.txt",
+		}
+		v := reflect.ValueOf(&s).Elem()
+		typ := v.Type()
+
+		resolver := &mockResolver{
+			data: map[string][]byte{
+				"file:///secrets/password.txt": []byte("envpass"),
+			},
+		}
+
+		field, _ := typ.FieldByName("Content")
+		val := v.FieldByName("Content")
+
+		err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
+		require.NoError(t, err)
+		assert.Equal(t, "envpass", s.Content)
+	})
+
+	t.Run("template with env function and prefix", func(t *testing.T) {
+		t.Setenv("APP_TEST_REF_DIR", "/app/secrets")
+
+		s := RefTemplateEnvStruct{
+			FileName: "creds.txt",
+		}
+		v := reflect.ValueOf(&s).Elem()
+		typ := v.Type()
+
+		resolver := &mockResolver{
+			data: map[string][]byte{
+				"file:///app/secrets/creds.txt": []byte("prefixedpass"),
+			},
+		}
+
+		field, _ := typ.FieldByName("Content")
+		val := v.FieldByName("Content")
+
+		err := tags.ProcessRef(ctx, field, val, v, resolver, "APP_", nil)
+		require.NoError(t, err)
+		assert.Equal(t, "prefixedpass", s.Content)
+	})
+
+	t.Run("template with missing field uses empty string", func(t *testing.T) {
+		// When a referenced field is empty, template should produce empty string
+		s := RefTemplateStruct{
+			SecretDir: "/etc/secrets",
+			Account:   "", // Empty account
+		}
+		v := reflect.ValueOf(&s).Elem()
+		typ := v.Type()
+
+		resolver := &mockResolver{
+			data: map[string][]byte{
+				"file:///etc/secrets/-password": []byte("emptyaccount"),
+			},
+		}
+
+		field, _ := typ.FieldByName("Password")
+		val := v.FieldByName("Password")
+
+		err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
+		require.NoError(t, err)
+		assert.Equal(t, "emptyaccount", s.Password)
 	})
 }

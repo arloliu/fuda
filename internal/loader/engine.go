@@ -201,8 +201,17 @@ func (e *Engine) applyTags(ctx context.Context, field reflect.StructField, field
 		return &types.FieldError{Path: field.Name, Tag: "env", Err: err}
 	}
 
+	// Lazy template data computation - only computed once if either ref or dsn needs it
+	var templateData any
+	getTemplateData := func() any {
+		if templateData == nil {
+			templateData = tags.StructToData(parentVal)
+		}
+		return templateData
+	}
+
 	// Resolve Refs
-	if err := tags.ProcessRef(ctx, field, fieldVal, parentVal, e.RefResolver); err != nil {
+	if err := tags.ProcessRef(ctx, field, fieldVal, parentVal, e.RefResolver, e.EnvPrefix, getTemplateData()); err != nil {
 		return &types.FieldError{Path: field.Name, Tag: "ref", Err: err}
 	}
 
@@ -212,7 +221,7 @@ func (e *Engine) applyTags(ctx context.Context, field reflect.StructField, field
 	}
 
 	// Process DSN templates (after all other tags, so referenced fields have their values)
-	if err := tags.ProcessDSN(ctx, field, fieldVal, parentVal, e.RefResolver, e.EnvPrefix); err != nil {
+	if err := tags.ProcessDSN(ctx, field, fieldVal, parentVal, e.RefResolver, e.EnvPrefix, getTemplateData()); err != nil {
 		return &types.FieldError{Path: field.Name, Tag: "dsn", Err: err}
 	}
 

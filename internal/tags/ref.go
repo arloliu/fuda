@@ -9,13 +9,40 @@ import (
 	"github.com/arloliu/fuda/internal/types"
 )
 
+// Resolver interface for resolving external references.
 type Resolver interface {
 	// Resolve returns the content referenced by the uri.
 	Resolve(ctx context.Context, uri string) ([]byte, error)
 }
 
 // ProcessRef processes 'ref' and 'refFrom' tags.
-func ProcessRef(ctx context.Context, field reflect.StructField, value reflect.Value, parentVal reflect.Value, resolver Resolver) error {
+//
+// The ref tag can contain template expressions using ${...} syntax:
+//   - ${.FieldName} - references the value of a field in the same struct
+//   - ${.Nested.Field} - references nested struct fields
+//   - ${env:KEY} - reads an environment variable
+//
+// Note: Fields referenced in templates must appear earlier in the struct.
+//
+// The templateData parameter is pre-computed struct data for template execution.
+// Pass nil to have it computed on-demand (for backward compatibility).
+//
+// Example:
+//
+//	type Config struct {
+//	    SecretDir string `default:"/etc/secrets"`
+//	    Account   string `yaml:"account"`
+//	    Password  string `ref:"file://${.SecretDir}/${.Account}-password"`
+//	}
+func ProcessRef(
+	ctx context.Context,
+	field reflect.StructField,
+	value reflect.Value,
+	parentVal reflect.Value,
+	resolver Resolver,
+	envPrefix string,
+	templateData any,
+) error {
 	if resolver == nil {
 		return nil
 	}
@@ -35,13 +62,16 @@ func ProcessRef(ctx context.Context, field reflect.StructField, value reflect.Va
 			return fmt.Errorf("refFrom field '%s' not found", refFrom)
 		}
 
-		// "Peek" logic: if refField is zero, check its default tag
-		uriVal := fmt.Sprint(refField.Interface())
-		if refField.Kind() == reflect.String {
-			uriVal = refField.String()
+		// refFrom only supports string fields
+		if refField.Kind() != reflect.String {
+			return fmt.Errorf("refFrom field '%s' must be a string, got %s", refFrom, refField.Kind())
 		}
 
-		if refField.IsZero() {
+		// Get the string value (safe for both exported and unexported fields)
+		uriVal := refField.String()
+
+		// "Peek" logic: if refField is zero, check its default tag
+		if uriVal == "" {
 			// Find the struct field for refField to get tag
 			parentType := parentVal.Type()
 			if f, ok := parentType.FieldByName(refFrom); ok {
@@ -53,20 +83,45 @@ func ProcessRef(ctx context.Context, field reflect.StructField, value reflect.Va
 		}
 
 		if uriVal != "" {
-			uri = normalizeURI(uriVal)
+			uri = uriVal
 		}
 	}
 
 	// Fallback to ref tag if uri is still empty
 	if uri == "" {
 		if refTag := field.Tag.Get("ref"); refTag != "" {
-			uri = refTag // ref tag is always a fixed URI
+			uri = refTag
 		}
 	}
 
 	if uri == "" {
 		return nil
 	}
+
+	// Process template expressions in URI if present
+	if strings.Contains(uri, "${") {
+		config := TemplateConfig{
+			Strict:    false, // ref uses permissive mode by default
+			Resolver:  resolver,
+			EnvPrefix: envPrefix,
+		}
+
+		// Use pre-computed data if available, otherwise compute on-demand
+		data := templateData
+		if data == nil {
+			data = StructToData(parentVal)
+		}
+
+		expanded, err := ProcessTemplate(ctx, uri, data, config)
+		if err != nil {
+			return fmt.Errorf("failed to expand ref template: %w", err)
+		}
+
+		uri = expanded
+	}
+
+	// Normalize URI (add file:// prefix if needed)
+	uri = normalizeURI(uri)
 
 	content, err := resolver.Resolve(ctx, uri)
 	if err != nil {

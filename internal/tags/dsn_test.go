@@ -88,7 +88,7 @@ func TestProcessDSN_BasicFieldReferences(t *testing.T) {
 	field, _ := typ.FieldByName("DSN")
 	val := v.FieldByName("DSN")
 
-	err := tags.ProcessDSN(ctx, field, val, v, nil, "")
+	err := tags.ProcessDSN(ctx, field, val, v, nil, "", nil)
 	require.NoError(t, err)
 
 	assert.Equal(t, "postgres://myuser:mypass@db.example.com:5432/production", s.DSN)
@@ -113,14 +113,14 @@ func TestProcessDSN_NestedFieldReferences(t *testing.T) {
 	// Test database DSN
 	field, _ := typ.FieldByName("DBDSN")
 	val := v.FieldByName("DBDSN")
-	err := tags.ProcessDSN(ctx, field, val, v, nil, "")
+	err := tags.ProcessDSN(ctx, field, val, v, nil, "", nil)
 	require.NoError(t, err)
 	assert.Equal(t, "postgres://admin:secret123@db.example.com:5432/db", s.DBDSN)
 
 	// Test redis DSN
 	field, _ = typ.FieldByName("RedisDSN")
 	val = v.FieldByName("RedisDSN")
-	err = tags.ProcessDSN(ctx, field, val, v, nil, "")
+	err = tags.ProcessDSN(ctx, field, val, v, nil, "", nil)
 	require.NoError(t, err)
 	assert.Equal(t, "redis://redis.example.com:6379", s.RedisDSN)
 }
@@ -142,7 +142,7 @@ func TestProcessDSN_WithRefFunction(t *testing.T) {
 	field, _ := typ.FieldByName("DSN")
 	val := v.FieldByName("DSN")
 
-	err := tags.ProcessDSN(ctx, field, val, v, resolver, "")
+	err := tags.ProcessDSN(ctx, field, val, v, resolver, "", nil)
 	require.NoError(t, err)
 
 	assert.Equal(t, "postgres://user:supersecret@db.example.com:5432/db", s.DSN)
@@ -162,7 +162,7 @@ func TestProcessDSN_WithEnvFunction(t *testing.T) {
 	field, _ := typ.FieldByName("DSN")
 	val := v.FieldByName("DSN")
 
-	err := tags.ProcessDSN(ctx, field, val, v, nil, "")
+	err := tags.ProcessDSN(ctx, field, val, v, nil, "", nil)
 	require.NoError(t, err)
 
 	assert.Equal(t, "postgres://envuser:envpass@db.example.com:5432/db", s.DSN)
@@ -182,7 +182,7 @@ func TestProcessDSN_WithEnvPrefix(t *testing.T) {
 	field, _ := typ.FieldByName("DSN")
 	val := v.FieldByName("DSN")
 
-	err := tags.ProcessDSN(ctx, field, val, v, nil, "APP_")
+	err := tags.ProcessDSN(ctx, field, val, v, nil, "APP_", nil)
 	require.NoError(t, err)
 
 	assert.Equal(t, "postgres://prefixeduser:prefixedpass@db.example.com:5432/db", s.DSN)
@@ -204,7 +204,7 @@ func TestProcessDSN_PermissiveMode(t *testing.T) {
 	field, _ := typ.FieldByName("DSN")
 	val := v.FieldByName("DSN")
 
-	err := tags.ProcessDSN(ctx, field, val, v, nil, "")
+	err := tags.ProcessDSN(ctx, field, val, v, nil, "", nil)
 	require.NoError(t, err)
 
 	// Empty strings are allowed in permissive mode
@@ -224,7 +224,7 @@ func TestProcessDSN_StrictMode_Error(t *testing.T) {
 	field, _ := typ.FieldByName("DSN")
 	val := v.FieldByName("DSN")
 
-	err := tags.ProcessDSN(ctx, field, val, v, nil, "")
+	err := tags.ProcessDSN(ctx, field, val, v, nil, "", nil)
 	// Empty string is still valid, just produces empty value in output
 	require.NoError(t, err)
 	assert.Equal(t, "postgres://user:pass@:5432/db", s.DSN)
@@ -246,7 +246,7 @@ func TestProcessDSN_SkipNonZeroValue(t *testing.T) {
 	field, _ := typ.FieldByName("DSN")
 	val := v.FieldByName("DSN")
 
-	err := tags.ProcessDSN(ctx, field, val, v, nil, "")
+	err := tags.ProcessDSN(ctx, field, val, v, nil, "", nil)
 	require.NoError(t, err)
 
 	// Should not overwrite existing value
@@ -267,7 +267,7 @@ func TestProcessDSN_NoDSNTag(t *testing.T) {
 	field, _ := typ.FieldByName("DSN")
 	val := v.FieldByName("DSN")
 
-	err := tags.ProcessDSN(ctx, field, val, v, nil, "")
+	err := tags.ProcessDSN(ctx, field, val, v, nil, "", nil)
 	require.NoError(t, err)
 	assert.Equal(t, "", s.DSN) // Unchanged
 }
@@ -281,7 +281,7 @@ func TestProcessDSN_NonStringField_Error(t *testing.T) {
 	field, _ := typ.FieldByName("Value")
 	val := v.FieldByName("Value")
 
-	err := tags.ProcessDSN(ctx, field, val, v, nil, "")
+	err := tags.ProcessDSN(ctx, field, val, v, nil, "", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "dsn tag can only be used on string fields")
 }
@@ -299,9 +299,9 @@ func TestProcessDSN_InvalidTemplate(t *testing.T) {
 	field, _ := typ.FieldByName("DSN")
 	val := v.FieldByName("DSN")
 
-	err := tags.ProcessDSN(ctx, field, val, v, nil, "")
+	err := tags.ProcessDSN(ctx, field, val, v, nil, "", nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to parse dsn template")
+	assert.Contains(t, err.Error(), "failed to parse template")
 }
 
 func TestProcessDSN_RefNoResolver(t *testing.T) {
@@ -315,7 +315,7 @@ func TestProcessDSN_RefNoResolver(t *testing.T) {
 	field, _ := typ.FieldByName("DSN")
 	val := v.FieldByName("DSN")
 
-	err := tags.ProcessDSN(ctx, field, val, v, nil, "") // No resolver
+	err := tags.ProcessDSN(ctx, field, val, v, nil, "", nil) // No resolver
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no resolver configured")
 }
@@ -335,7 +335,7 @@ func TestProcessDSN_RefResolverError(t *testing.T) {
 	field, _ := typ.FieldByName("DSN")
 	val := v.FieldByName("DSN")
 
-	err := tags.ProcessDSN(ctx, field, val, v, resolver, "")
+	err := tags.ProcessDSN(ctx, field, val, v, resolver, "", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to resolve ref")
 }
@@ -355,7 +355,7 @@ func TestProcessDSN_StrictMode_MissingKey(t *testing.T) {
 	field, _ := typ.FieldByName("DSN")
 	val := v.FieldByName("DSN")
 
-	err := tags.ProcessDSN(ctx, field, val, v, nil, "")
+	err := tags.ProcessDSN(ctx, field, val, v, nil, "", nil)
 	require.Error(t, err)
 	// Template execution error for missing field or map key
 	errorMsg := err.Error()
@@ -380,7 +380,7 @@ func TestProcessDSN_QuoteEscaping(t *testing.T) {
 	field, _ := typ.FieldByName("DSN")
 	val := v.FieldByName("DSN")
 
-	err := tags.ProcessDSN(ctx, field, val, v, nil, "")
+	err := tags.ProcessDSN(ctx, field, val, v, nil, "", nil)
 	require.NoError(t, err)
 	assert.Equal(t, "success", s.DSN)
 }
