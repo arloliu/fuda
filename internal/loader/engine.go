@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/arloliu/fuda/internal/tags"
@@ -29,6 +30,7 @@ type Engine struct {
 	TemplateConfig *TemplateConfig
 	TemplateData   any
 	DotenvConfig   *DotenvConfig
+	Overrides      map[string]any // Programmatic value overrides (dot-notation supported)
 }
 
 func (e *Engine) Load(target any) error {
@@ -59,7 +61,16 @@ func (e *Engine) Load(target any) error {
 		source = processed
 	}
 
-	// 1. Unmarshal Source
+	// 1. Apply overrides and unmarshal Source
+	// Handle overrides even if source is empty (allows creating config purely from overrides)
+	if len(e.Overrides) > 0 {
+		var err error
+		source, err = e.applyOverrides(source)
+		if err != nil {
+			return fmt.Errorf("failed to apply overrides: %w", err)
+		}
+	}
+
 	if len(source) > 0 {
 		// Unmarshal to node tree for duration preprocessing
 		var node yaml.Node
@@ -243,4 +254,66 @@ func (e *Engine) applyTags(ctx context.Context, field reflect.StructField, field
 	}
 
 	return nil
+}
+
+// applyOverrides applies programmatic overrides to the source YAML.
+// Returns the modified source as YAML bytes.
+func (e *Engine) applyOverrides(source []byte) ([]byte, error) {
+	// Parse source into a map
+	var data map[string]any
+	if err := yaml.Unmarshal(source, &data); err != nil {
+		return nil, fmt.Errorf("failed to parse source as map: %w", err)
+	}
+
+	// Initialize data if empty
+	if data == nil {
+		data = make(map[string]any)
+	}
+
+	// Apply each override
+	for key, value := range e.Overrides {
+		setNestedValue(data, key, value)
+	}
+
+	// Re-marshal to YAML
+	modified, err := yaml.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal modified config: %w", err)
+	}
+
+	return modified, nil
+}
+
+// setNestedValue sets a value in a nested map using dot notation.
+// For example, "database.host" sets data["database"]["host"].
+func setNestedValue(data map[string]any, key string, value any) {
+	parts := strings.Split(key, ".")
+
+	// Navigate to the parent map, creating intermediate maps as needed
+	current := data
+	for i := 0; i < len(parts)-1; i++ {
+		part := parts[i]
+
+		next, exists := current[part]
+		if !exists {
+			// Create intermediate map
+			nextMap := make(map[string]any)
+			current[part] = nextMap
+			current = nextMap
+
+			continue
+		}
+
+		nextMap, ok := next.(map[string]any)
+		if !ok {
+			// Existing value is not a map, replace it with a map
+			nextMap = make(map[string]any)
+			current[part] = nextMap
+		}
+
+		current = nextMap
+	}
+
+	// Set the final key
+	current[parts[len(parts)-1]] = value
 }

@@ -60,7 +60,8 @@ type loaderConfig struct {
 	timeout      time.Duration
 	tmplConfig   *templateConfig
 	tmplData     any
-	dotenvConfig *dotenvConfig // dotenv file loading configuration
+	dotenvConfig *dotenvConfig  // dotenv file loading configuration
+	overrides    map[string]any // Programmatic value overrides
 }
 
 // dotenvConfig holds dotenv file loading configuration.
@@ -249,6 +250,25 @@ func (b *Builder) WithTimeout(timeout time.Duration) *Builder {
 	return b
 }
 
+// WithOverrides sets programmatic overrides that take precedence over config file values.
+// These are applied after template processing but before struct unmarshaling.
+// Keys use dot notation for nested values: "database.host" overrides database.host.
+//
+// Example:
+//
+//	loader, _ := fuda.New().
+//	    FromFile("config.yaml").
+//	    WithOverrides(map[string]any{
+//	        "host": "override.example.com",
+//	        "database.port": 5433,
+//	    }).
+//	    Build()
+func (b *Builder) WithOverrides(overrides map[string]any) *Builder {
+	b.config.overrides = overrides
+
+	return b
+}
+
 // Apply applies a configuration function to the builder.
 // This enables reusable configuration bundles:
 //
@@ -398,6 +418,7 @@ func (b *Builder) Build() (*Loader, error) {
 			tmplConfig:   b.config.tmplConfig,
 			tmplData:     b.config.tmplData,
 			dotenvConfig: b.config.dotenvConfig,
+			overrides:    b.config.overrides,
 		},
 		source:     b.source,
 		sourceName: b.name,
@@ -441,6 +462,7 @@ func (l *Loader) Load(target any) error {
 		TemplateConfig: tmplCfg,
 		TemplateData:   l.tmplData,
 		DotenvConfig:   dotenvCfg,
+		Overrides:      l.overrides,
 	}
 
 	return engine.Load(target)
