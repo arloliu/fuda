@@ -106,7 +106,7 @@ func TestProcessRef(t *testing.T) {
 	t.Run("ref tag", func(t *testing.T) {
 		field, _ := typ.FieldByName("RefField")
 		val := v.FieldByName("RefField")
-		err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
+		_, err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
 		require.NoError(t, err)
 		assert.Equal(t, "resolved_content", s.RefField)
 	})
@@ -120,7 +120,7 @@ func TestProcessRef(t *testing.T) {
 		field, _ := typ.FieldByName("RefFrom")
 		val := v.FieldByName("RefFrom") // RefFrom field
 
-		err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
+		_, err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
 		require.NoError(t, err)
 		assert.Equal(t, "resolved_content", s.RefFrom)
 	})
@@ -132,7 +132,7 @@ func TestProcessRef(t *testing.T) {
 		field, _ := typ.FieldByName("RefFrom")
 		val := v.FieldByName("RefFrom")
 
-		err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
+		_, err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
 		require.NoError(t, err)
 		assert.Equal(t, "resolved_content", s.RefFrom)
 	})
@@ -180,7 +180,7 @@ func TestProcessRef_Template(t *testing.T) {
 		field, _ := typ.FieldByName("Password")
 		val := v.FieldByName("Password")
 
-		err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
+		_, err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
 		require.NoError(t, err)
 		assert.Equal(t, "secret123", s.Password)
 	})
@@ -203,7 +203,7 @@ func TestProcessRef_Template(t *testing.T) {
 		field, _ := typ.FieldByName("Password")
 		val := v.FieldByName("Password")
 
-		err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
+		_, err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
 		require.NoError(t, err)
 		assert.Equal(t, "nestedpass", s.Password)
 	})
@@ -226,7 +226,7 @@ func TestProcessRef_Template(t *testing.T) {
 		field, _ := typ.FieldByName("Content")
 		val := v.FieldByName("Content")
 
-		err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
+		_, err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
 		require.NoError(t, err)
 		assert.Equal(t, "envpass", s.Content)
 	})
@@ -249,7 +249,7 @@ func TestProcessRef_Template(t *testing.T) {
 		field, _ := typ.FieldByName("Content")
 		val := v.FieldByName("Content")
 
-		err := tags.ProcessRef(ctx, field, val, v, resolver, "APP_", nil)
+		_, err := tags.ProcessRef(ctx, field, val, v, resolver, "APP_", nil)
 		require.NoError(t, err)
 		assert.Equal(t, "prefixedpass", s.Content)
 	})
@@ -272,8 +272,68 @@ func TestProcessRef_Template(t *testing.T) {
 		field, _ := typ.FieldByName("Password")
 		val := v.FieldByName("Password")
 
-		err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
+		_, err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
 		require.NoError(t, err)
 		assert.Equal(t, "emptyaccount", s.Password)
+	})
+}
+
+func TestRefFromPointerSupport(t *testing.T) {
+	type Config struct {
+		SourceNil   *string
+		SourceEmpty *string
+		SourceVal   *string
+
+		SecretNil   string `refFrom:"SourceNil" ref:"file://fallback-nil"`
+		SecretEmpty string `refFrom:"SourceEmpty" ref:"file://fallback-empty"`
+		SecretVal   string `refFrom:"SourceVal" ref:"file://fallback-val"`
+	}
+
+	val := "source-value"
+	empty := ""
+	s := Config{
+		SourceNil:   nil,
+		SourceEmpty: &empty,
+		SourceVal:   &val,
+	}
+
+	v := reflect.ValueOf(&s).Elem()
+	typ := v.Type()
+	ctx := context.Background()
+
+	resolver := &mockResolver{
+		data: map[string][]byte{
+			"file://fallback-nil":   []byte("fallback-used"),
+			"file://fallback-empty": []byte("should-not-be-used"),
+			"file://fallback-val":   []byte("should-not-be-used"),
+			"file://source-value":   []byte("resolved-from-source"),
+		},
+	}
+
+	t.Run("nil pointer falls back", func(t *testing.T) {
+		field, _ := typ.FieldByName("SecretNil")
+		val := v.FieldByName("SecretNil")
+		resolved, err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
+		require.NoError(t, err)
+		assert.True(t, resolved, "Should resolve from ref tag")
+		assert.Equal(t, "fallback-used", s.SecretNil)
+	})
+
+	t.Run("empty pointer stops fallback", func(t *testing.T) {
+		field, _ := typ.FieldByName("SecretEmpty")
+		val := v.FieldByName("SecretEmpty")
+		resolved, err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
+		require.NoError(t, err)
+		assert.True(t, resolved, "Explicit empty pointer should mark as resolved")
+		assert.Equal(t, "", s.SecretEmpty, "Should use empty value from source")
+	})
+
+	t.Run("value pointer uses value", func(t *testing.T) {
+		field, _ := typ.FieldByName("SecretVal")
+		val := v.FieldByName("SecretVal")
+		resolved, err := tags.ProcessRef(ctx, field, val, v, resolver, "", nil)
+		require.NoError(t, err)
+		assert.True(t, resolved, "Value pointer should resolve")
+		assert.Equal(t, "resolved-from-source", s.SecretVal)
 	})
 }

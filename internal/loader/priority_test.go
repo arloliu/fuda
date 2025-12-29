@@ -106,3 +106,139 @@ func TestEnvSchemeIntegration(t *testing.T) {
 		assert.Equal(t, "default-value", cfg.SecretB, "Should fallback to ref if refFrom path is empty")
 	})
 }
+
+// TestGracefulFallbackChain tests the new "not found" vs "empty" distinction
+func TestGracefulFallbackChain(t *testing.T) {
+	// Test case 1: Unset env var falls back to default
+	t.Run("UnsetEnvFallsBackToDefault", func(t *testing.T) {
+		type Config struct {
+			Secret string `ref:"env://UNSET_ENV_VAR_12345" default:"fallback-default"`
+		}
+
+		// Ensure env var is unset
+		os.Unsetenv("UNSET_ENV_VAR_12345")
+
+		e := &Engine{
+			RefResolver: resolver.New(nil),
+		}
+
+		var cfg Config
+		err := e.Load(&cfg)
+		require.NoError(t, err, "Unset env var should not error")
+		assert.Equal(t, "fallback-default", cfg.Secret, "Should use default when env is unset")
+	})
+
+	// Test case 2: Empty env var is used (stops fallback)
+	t.Run("EmptyEnvStopsFallback", func(t *testing.T) {
+		type Config struct {
+			Secret string `ref:"env://EMPTY_ENV_VAR_TEST" default:"fallback-default"`
+		}
+
+		os.Setenv("EMPTY_ENV_VAR_TEST", "")
+		defer os.Unsetenv("EMPTY_ENV_VAR_TEST")
+
+		e := &Engine{
+			RefResolver: resolver.New(nil),
+		}
+
+		var cfg Config
+		err := e.Load(&cfg)
+		require.NoError(t, err)
+		assert.Equal(t, "", cfg.Secret, "Empty env var should be used, not fallback to default")
+	})
+
+	// Test case 3: Missing file falls back to default
+	t.Run("MissingFileFallsBackToDefault", func(t *testing.T) {
+		type Config struct {
+			Secret string `ref:"file:///nonexistent/path/to/secret.txt" default:"file-fallback"`
+		}
+
+		e := &Engine{
+			RefResolver: resolver.New(nil),
+		}
+
+		var cfg Config
+		err := e.Load(&cfg)
+		require.NoError(t, err, "Missing file should not error")
+		assert.Equal(t, "file-fallback", cfg.Secret, "Should use default when file is missing")
+	})
+
+	// Test case 4: refFrom with unset env falls back to ref
+	t.Run("RefFromUnsetEnvFallsBackToRef", func(t *testing.T) {
+		type Config struct {
+			SourcePath string `default:"env://UNSET_SOURCE_VAR"`
+			Secret     string `refFrom:"SourcePath" ref:"env://FALLBACK_REF_VAR" default:"final-default"`
+		}
+
+		os.Unsetenv("UNSET_SOURCE_VAR")
+		os.Setenv("FALLBACK_REF_VAR", "ref-fallback-value")
+		defer os.Unsetenv("FALLBACK_REF_VAR")
+
+		e := &Engine{
+			RefResolver: resolver.New(nil),
+		}
+
+		var cfg Config
+		err := e.Load(&cfg)
+		require.NoError(t, err)
+		assert.Equal(t, "ref-fallback-value", cfg.Secret, "Should fallback to ref when refFrom source resolves to 'not found'")
+	})
+
+	// Test case 5: Full chain - refFrom missing, ref missing, use default
+	t.Run("FullChainFallbackToDefault", func(t *testing.T) {
+		type Config struct {
+			SourcePath string `default:"env://MISSING_SOURCE"`
+			Secret     string `refFrom:"SourcePath" ref:"env://MISSING_REF" default:"ultimate-fallback"`
+		}
+
+		os.Unsetenv("MISSING_SOURCE")
+		os.Unsetenv("MISSING_REF")
+
+		e := &Engine{
+			RefResolver: resolver.New(nil),
+		}
+
+		var cfg Config
+		err := e.Load(&cfg)
+		require.NoError(t, err)
+		assert.Equal(t, "ultimate-fallback", cfg.Secret, "Should fallback to default when both refFrom and ref are missing")
+	})
+
+	// Test case 6: No fallback, field stays zero
+	t.Run("NoFallbackFieldStaysZero", func(t *testing.T) {
+		type Config struct {
+			Secret string `ref:"env://MISSING_NO_DEFAULT"`
+		}
+
+		os.Unsetenv("MISSING_NO_DEFAULT")
+
+		e := &Engine{
+			RefResolver: resolver.New(nil),
+		}
+
+		var cfg Config
+		err := e.Load(&cfg)
+		require.NoError(t, err)
+		assert.Equal(t, "", cfg.Secret, "Should leave field as zero when no default and ref is missing")
+	})
+
+	// Test case 7: refFrom empty string source falls back to ref
+	t.Run("RefFromEmptySourceFallsBackToRef", func(t *testing.T) {
+		type Config struct {
+			SourcePath string // Empty string (not set)
+			Secret     string `refFrom:"SourcePath" ref:"env://FALLBACK_VAL"`
+		}
+
+		os.Setenv("FALLBACK_VAL", "fallback-from-ref")
+		defer os.Unsetenv("FALLBACK_VAL")
+
+		e := &Engine{
+			RefResolver: resolver.New(nil),
+		}
+
+		var cfg Config
+		err := e.Load(&cfg)
+		require.NoError(t, err)
+		assert.Equal(t, "fallback-from-ref", cfg.Secret, "Empty refFrom source should fallback to ref")
+	})
+}

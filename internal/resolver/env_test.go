@@ -35,10 +35,10 @@ func TestEnvResolver_Resolve(t *testing.T) {
 		},
 		{
 			name: "Unset variable",
-			// No env var set
+			// No env var set - returns ErrNotExist to signal fallback
 			uri:     "env://TEST_UNSET_VAR",
-			want:    []byte{},
-			wantErr: false,
+			want:    nil,
+			wantErr: true,
 		},
 		{
 			name:    "Empty variable",

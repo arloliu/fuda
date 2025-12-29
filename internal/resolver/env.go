@@ -56,11 +56,12 @@ func (r *EnvResolver) Resolve(ctx context.Context, uri string) ([]byte, error) {
 		return nil, fmt.Errorf("empty environment variable name in URI: %s", uri)
 	}
 
-	val := os.Getenv(varName)
-	if val == "" {
-		// Return empty bytes if not set or empty, do not error.
-		return []byte{}, nil
+	val, ok := os.LookupEnv(varName)
+	if !ok {
+		// Variable not set - return ErrNotExist to signal "not found" for fallback chain
+		return nil, os.ErrNotExist
 	}
 
+	// Variable is set (even if empty) - return its value
 	return []byte(val), nil
 }

@@ -211,13 +211,16 @@ func (e *Engine) applyTags(ctx context.Context, field reflect.StructField, field
 	}
 
 	// Resolve Refs
-	if err := tags.ProcessRef(ctx, field, fieldVal, parentVal, e.RefResolver, e.EnvPrefix, getTemplateData()); err != nil {
+	refResolved, err := tags.ProcessRef(ctx, field, fieldVal, parentVal, e.RefResolver, e.EnvPrefix, getTemplateData())
+	if err != nil {
 		return &types.FieldError{Path: field.Name, Tag: "ref", Err: err}
 	}
 
-	// Apply Defaults
-	if err := tags.ProcessDefault(field, fieldVal); err != nil {
-		return &types.FieldError{Path: field.Name, Tag: "default", Err: err}
+	// Apply Defaults (skip if ref resolved a value, even if empty)
+	if !refResolved {
+		if err := tags.ProcessDefault(field, fieldVal); err != nil {
+			return &types.FieldError{Path: field.Name, Tag: "default", Err: err}
+		}
 	}
 
 	// Process DSN templates (after all other tags, so referenced fields have their values)

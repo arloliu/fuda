@@ -68,9 +68,9 @@ func TestEdgeCase_InvalidDefaultValue(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestEdgeCase_RefResolutionError(t *testing.T) {
+func TestEdgeCase_RefResolutionGracefulFallback(t *testing.T) {
 	type Config struct {
-		Secret string `ref:"file://nonexistent_file_12345"`
+		Secret string `ref:"file://nonexistent_file_12345" default:"fallback_secret"`
 	}
 
 	cfg := &Config{}
@@ -78,8 +78,8 @@ func TestEdgeCase_RefResolutionError(t *testing.T) {
 	require.NoError(t, err)
 
 	err = loader.Load(cfg)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "ref")
+	require.NoError(t, err, "Missing ref file should not error, should fallback")
+	assert.Equal(t, "fallback_secret", cfg.Secret, "Should use default when ref file missing")
 }
 
 func TestEdgeCase_UnexportedFieldsSkipped(t *testing.T) {

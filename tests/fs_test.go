@@ -147,7 +147,7 @@ func TestWithFilesystem_RefFileNotFound(t *testing.T) {
 	require.NoError(t, err)
 
 	type Config struct {
-		Value string `yaml:"value" ref:"file:///nonexistent.txt"`
+		Value string `yaml:"value" ref:"file:///nonexistent.txt" default:"fallback_value"`
 	}
 
 	loader, err := fuda.New().
@@ -158,7 +158,8 @@ func TestWithFilesystem_RefFileNotFound(t *testing.T) {
 
 	var cfg Config
 	err = loader.Load(&cfg)
-	assert.Error(t, err)
+	require.NoError(t, err, "Missing ref file should not error, should fallback")
+	assert.Equal(t, "fallback_value", cfg.Value, "Should use default when ref file missing")
 }
 
 func TestWithFilesystem_OverridesGlobalDefault(t *testing.T) {
