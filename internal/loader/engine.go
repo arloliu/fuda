@@ -61,12 +61,26 @@ func (e *Engine) Load(target any) error {
 
 	// 1. Unmarshal Source
 	if len(source) > 0 {
-		if err := yaml.Unmarshal(source, target); err != nil {
+		// Unmarshal to node tree for duration preprocessing
+		var node yaml.Node
+		if err := yaml.Unmarshal(source, &node); err != nil {
 			if e.SourceName != "" {
 				return fmt.Errorf("failed to unmarshal %s: %w", e.SourceName, err)
 			}
 
 			return fmt.Errorf("failed to unmarshal source: %w", err)
+		}
+
+		// Preprocess duration fields (integer ns, 'd' suffix)
+		preprocessDurationNodes(&node)
+
+		// Decode to target struct
+		if err := node.Decode(target); err != nil {
+			if e.SourceName != "" {
+				return fmt.Errorf("failed to decode %s: %w", e.SourceName, err)
+			}
+
+			return fmt.Errorf("failed to decode source: %w", err)
 		}
 	}
 
