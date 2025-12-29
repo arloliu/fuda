@@ -30,6 +30,7 @@
 package fuda
 
 import (
+	"bytes"
 	"io"
 	"reflect"
 	"text/template"
@@ -39,6 +40,8 @@ import (
 	"github.com/arloliu/fuda/internal/resolver"
 	"github.com/go-playground/validator/v10"
 	"github.com/spf13/afero"
+	"gopkg.in/yaml.v3"
+	"sigs.k8s.io/yaml/kyaml"
 )
 
 // Loader is responsible for loading configuration from various sources.
@@ -441,6 +444,48 @@ func (l *Loader) Load(target any) error {
 	}
 
 	return engine.Load(target)
+}
+
+// ToKYAML converts the loader's source to KYAML format.
+// Returns an error if the source is not valid YAML format.
+// KYAML is a strict subset of YAML that is explicit and unambiguous,
+// designed to be halfway between YAML and JSON.
+func (l *Loader) ToKYAML() ([]byte, error) {
+	if len(l.source) == 0 {
+		return nil, &FieldError{Message: "no source data to convert"}
+	}
+
+	// Validate that the source is valid YAML by unmarshaling to a generic type
+	var test any
+	if err := yaml.Unmarshal(l.source, &test); err != nil {
+		return nil, &FieldError{Message: "source is not valid YAML format", Err: err}
+	}
+
+	// Convert to KYAML format
+	var buf bytes.Buffer
+	encoder := &kyaml.Encoder{}
+	if err := encoder.FromYAML(bytes.NewReader(l.source), &buf); err != nil {
+		return nil, &FieldError{Message: "failed to convert to KYAML format", Err: err}
+	}
+
+	return buf.Bytes(), nil
+}
+
+// ToMap returns the loader's source configuration as a map.
+// This returns the raw source data (before struct loading, defaults, or env overrides).
+// Useful for debugging, logging, or passing configuration to other systems.
+// Returns an error if no source is set or if YAML parsing fails.
+func (l *Loader) ToMap() (map[string]any, error) {
+	if len(l.source) == 0 {
+		return nil, &FieldError{Message: "no source data to convert"}
+	}
+
+	var result map[string]any
+	if err := yaml.Unmarshal(l.source, &result); err != nil {
+		return nil, &FieldError{Message: "source is not valid YAML/JSON", Err: err}
+	}
+
+	return result, nil
 }
 
 // Convenience Functions
