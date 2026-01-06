@@ -206,6 +206,10 @@ type Config struct {
 
     // Environment variable
     SecretKey string `ref:"env://SECRET_KEY"`
+
+    // Binary content (certificates, keys)
+    TLSCert []byte `ref:"file:///etc/ssl/certs/server.pem"`
+    TLSKey  []byte `ref:"file:///etc/ssl/private/server.key"`
 }
 ```
 

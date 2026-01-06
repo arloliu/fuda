@@ -48,6 +48,7 @@ Tags    []string      `default:"[\"app\", \"prod\"]"`
 | `*string`, `*int`, etc.            | `default:"value"`                               |
 | `time.Duration`                    | `default:"30s"`, `default:"5m"`, `default:"7d"` |
 | `time.Time`                        | `default:"2024-01-01T00:00:00Z"` (RFC3339)      |
+| `[]byte`                           | `default:"raw content"` (raw bytes)             |
 | `[]T`                              | `default:"[1, 2, 3]"` (JSON array)              |
 | `map[K]V`                          | `default:"{\"key\": \"value\"}"` (JSON object)  |
 
@@ -114,6 +115,10 @@ Password string `ref:"file:///run/secrets/db_password"`
 
 // From HTTP
 APIKey string `ref:"https://vault.example.com/v1/secrets/api_key"`
+
+// Binary content (e.g., certificates, keys)
+Cert []byte `ref:"file:///etc/ssl/certs/server.pem"`
+Key  []byte `ref:"file:///etc/ssl/private/server.key"`
 ```
 
 ### Dynamic URI with Templates
