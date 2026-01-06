@@ -157,6 +157,12 @@ func convertFloat(value string, target reflect.Value) error {
 }
 
 func convertSlice(value string, target reflect.Value) error {
+	// Special case: []byte should receive raw bytes, not CSV-parsed
+	if target.Type().Elem().Kind() == reflect.Uint8 {
+		target.SetBytes([]byte(value))
+		return nil
+	}
+
 	reader := csv.NewReader(strings.NewReader(value))
 	reader.TrimLeadingSpace = true
 	parts, err := reader.Read()
