@@ -77,6 +77,38 @@ loader, _ := fuda.New().
     Build()
 ```
 
+### Duration Type
+
+For fields that specifically represent durations, use `fuda.Duration` instead of `time.Duration`. This provides:
+
+- **Human-readable JSON serialization**: Outputs `"1h30m"` instead of `5400000000000` (nanoseconds)
+- **Flexible parsing**: Accepts both strings (`"30s"`) and numbers (nanoseconds)
+- **Day suffix support**: Parses `"7d"` as 7 days
+
+```go
+type Config struct {
+    Timeout     fuda.Duration `yaml:"timeout" default:"30s"`
+    CacheTTL    fuda.Duration `yaml:"cache_ttl" default:"1h"`
+    SessionLife fuda.Duration `yaml:"session_life" default:"7d"`
+}
+```
+
+```yaml
+timeout: 30s
+cache_ttl: 1h
+session_life: 7d
+```
+
+**Accessor methods:**
+
+```go
+var cfg Config
+fuda.LoadFile("config.yaml", &cfg)
+
+cfg.Timeout.Duration() // time.Duration(30 * time.Second)
+cfg.Timeout.String()   // "30s"
+```
+
 ### Byte Size Parsing
 
 Integer fields (`int`, `int64`, `uint64`, etc.) support human-readable byte size strings with IEC (binary) and SI (decimal) units:

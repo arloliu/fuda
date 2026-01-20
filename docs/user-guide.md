@@ -169,6 +169,31 @@ loader, _ := fuda.New().
     Build()
 ```
 
+### Duration Type
+
+For fields that represent durations, use `fuda.Duration` instead of `time.Duration`:
+
+```go
+type Config struct {
+    Timeout     fuda.Duration `yaml:"timeout" default:"30s"`
+    CacheTTL    fuda.Duration `yaml:"cache_ttl" default:"1h"`
+    SessionLife fuda.Duration `yaml:"session_life" default:"7d"`
+}
+```
+
+**Benefits over `time.Duration`:**
+
+- **Human-readable JSON serialization**: Outputs `"1h30m"` instead of `5400000000000` (nanoseconds)
+- **Flexible input**: Accepts both strings (`"30s"`) and numbers (nanoseconds)
+- **Day suffix support**: Parses `"7d"` as 7 days (168 hours)
+
+**Accessor methods:**
+
+```go
+cfg.Timeout.Duration() // time.Duration value
+cfg.Timeout.String()   // "30s"
+```
+
 ### ByteSize Type
 
 For fields that represent byte sizes, use `fuda.ByteSize` instead of raw integers:
