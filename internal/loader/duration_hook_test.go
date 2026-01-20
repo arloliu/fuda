@@ -1,23 +1,39 @@
 package loader
 
 import (
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
 
 func TestPreprocessDurationNodes_JSON(t *testing.T) {
-	input := `{"timeout":"2d","nested":{"delay":"1d12h"}}`
+	type Nested struct {
+		Delay time.Duration `json:"delay"`
+	}
+
+	type Config struct {
+		Timeout time.Duration `json:"timeout"`
+		Label   string        `json:"label"`
+		Nested  Nested        `json:"nested"`
+	}
+
+	input := `{"timeout":"2d","label":"2d","nested":{"delay":"1d12h"}}`
 
 	var node yaml.Node
 	require.NoError(t, yaml.Unmarshal([]byte(input), &node))
 
-	preprocessDurationNodes(&node)
+	preprocessDurationNodesForType(&node, reflect.TypeFor[Config]())
 
 	timeoutNode := findMappingValue(&node, "timeout")
 	require.NotNil(t, timeoutNode)
 	require.Equal(t, "48h", timeoutNode.Value)
+
+	labelNode := findMappingValue(&node, "label")
+	require.NotNil(t, labelNode)
+	require.Equal(t, "2d", labelNode.Value)
 
 	nestedNode := findMappingValue(&node, "nested")
 	require.NotNil(t, nestedNode)

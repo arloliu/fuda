@@ -1,6 +1,7 @@
 package loader
 
 import (
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -8,31 +9,54 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// preprocessDurationNodes walks a YAML node tree and converts duration values
-// with 'd' suffix to hours format that time.Duration can parse.
+// preprocessDurationNodesForType walks a YAML node tree and converts duration values
+// with 'd' suffix to hours format that time.Duration can parse, but only for
+// time.Duration target fields.
 // Examples: "2d" → "48h", "1d12h" → "36h"
 //
 // Note: Integer nanoseconds are NOT converted here because we cannot distinguish
 // between an integer meant for time.Duration vs a regular int field at the YAML level.
 // For integer duration values, use fuda.Duration type which has custom UnmarshalYAML.
-func preprocessDurationNodes(node *yaml.Node) {
+func preprocessDurationNodesForType(node *yaml.Node, targetType reflect.Type) {
 	if node == nil {
 		return
+	}
+	if targetType != nil && targetType.Kind() == reflect.Pointer {
+		targetType = targetType.Elem()
 	}
 
 	switch node.Kind {
 	case yaml.DocumentNode, yaml.SequenceNode:
 		for _, child := range node.Content {
-			preprocessDurationNodes(child)
+			preprocessDurationNodesForType(child, targetType)
 		}
 	case yaml.MappingNode:
-		// Process key-value pairs
-		for i := 0; i < len(node.Content); i += 2 {
-			preprocessDurationNodes(node.Content[i+1]) // value node
+		switch {
+		case targetType != nil && targetType.Kind() == reflect.Struct:
+			fieldMap := yamlFieldTypeMap(targetType)
+			for i := 0; i < len(node.Content); i += 2 {
+				keyNode := node.Content[i]
+				valNode := node.Content[i+1]
+				if keyNode.Kind != yaml.ScalarNode {
+					continue
+				}
+				fieldType, ok := fieldMap[keyNode.Value]
+				if !ok {
+					continue
+				}
+				preprocessDurationNodesForType(valNode, fieldType)
+			}
+		case targetType != nil && targetType.Kind() == reflect.Map:
+			valType := targetType.Elem()
+			for i := 0; i < len(node.Content); i += 2 {
+				preprocessDurationNodesForType(node.Content[i+1], valType)
+			}
+		default:
+			// Unknown target type; avoid coercion
 		}
 	case yaml.ScalarNode:
-		// Convert 'd' suffix to hours (e.g., "2d" → "48h")
-		if node.Tag == "!!str" && hasDaySuffix(node.Value) {
+		// Convert 'd' suffix to hours (e.g., "2d" → "48h") only for time.Duration
+		if node.Tag == "!!str" && isDurationType(targetType) && hasDaySuffix(node.Value) {
 			if converted, ok := convertDaysToHours(node.Value); ok {
 				node.Value = converted
 			}
@@ -40,6 +64,16 @@ func preprocessDurationNodes(node *yaml.Node) {
 	case yaml.AliasNode:
 		// Aliases are resolved by yaml.Decode, no preprocessing needed
 	}
+}
+
+func isDurationType(t reflect.Type) bool {
+	if t == nil {
+		return false
+	}
+	if t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	return t == reflect.TypeFor[time.Duration]()
 }
 
 // hasDaySuffix checks if a string contains a 'd' or 'D' suffix for days.

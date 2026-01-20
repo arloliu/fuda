@@ -84,7 +84,7 @@ func (e *Engine) Load(target any) error {
 
 		// Preprocess nodes
 		preprocessSizeNodesForType(&node, reflect.TypeOf(target))
-		preprocessDurationNodes(&node)
+		preprocessDurationNodesForType(&node, reflect.TypeOf(target))
 
 		// Decode to target struct
 		if err := node.Decode(target); err != nil {
