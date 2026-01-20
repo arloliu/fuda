@@ -78,10 +78,17 @@ func convertInt(value string, target reflect.Value) error {
 		return nil
 	}
 
-	v, err := strconv.ParseInt(value, 10, 64)
+	// 1. Try generic byte parsing (handles raw numbers and size strings)
+	v, err := parseBytes(value)
 	if err != nil {
 		return err
 	}
+
+	// 2. Check for overflow based on target bit size
+	if target.OverflowInt(v) {
+		return fmt.Errorf("value %s overflows %s", value, target.Type())
+	}
+
 	target.SetInt(v)
 
 	return nil
@@ -137,10 +144,16 @@ func parseDuration(s string) (time.Duration, error) {
 }
 
 func convertUint(value string, target reflect.Value) error {
-	v, err := strconv.ParseUint(value, 10, 64)
+	v, err := parseBytesUint(value)
 	if err != nil {
 		return err
 	}
+
+	// Check for overflow
+	if target.OverflowUint(v) {
+		return fmt.Errorf("value %s overflows %s", value, target.Type())
+	}
+
 	target.SetUint(v)
 
 	return nil

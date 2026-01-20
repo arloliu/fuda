@@ -132,6 +132,11 @@ type Config struct {
     Timeout time.Duration `default:"30s"`
     MaxAge  time.Duration `default:"7d"`
 
+    // Byte sizes (supports IEC and SI units)
+    MaxFileSize int64  `default:"10MiB"`  // 10485760 bytes
+    BufferSize  int    `default:"64KiB"`  // 65536 bytes
+    UploadLimit uint64 `default:"2GB"`    // 2000000000 bytes
+
     // Pointers (creates non-nil value)
     MaxConn *int `default:"100"`
 

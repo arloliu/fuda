@@ -85,7 +85,7 @@ func TestTypeSupport_Fallback(t *testing.T) {
 		err := fuda.SetDefaults(&cfg)
 		// Should error because "" is not a valid int
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "parsing \"\": invalid syntax")
+		assert.Contains(t, err.Error(), "empty string")
 	})
 }
 

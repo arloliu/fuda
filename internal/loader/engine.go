@@ -82,7 +82,8 @@ func (e *Engine) Load(target any) error {
 			return fmt.Errorf("failed to unmarshal source: %w", err)
 		}
 
-		// Preprocess duration fields (integer ns, 'd' suffix)
+		// Preprocess nodes
+		preprocessSizeNodesForType(&node, reflect.TypeOf(target))
 		preprocessDurationNodes(&node)
 
 		// Decode to target struct

@@ -74,6 +74,7 @@ func main() {
 - **Custom type conversion** via `Scanner` interface
 - **Dynamic defaults** via `Setter` interface
 - **Duration type** with human-friendly parsing (e.g., `"30s"`, `"5m"`, `"1h30m"`, `"7d"`)
+- **Byte size parsing** for integer fields (e.g., `"64KiB"`, `"10MiB"`, `"2GB"`)
 - **RawMessage type** for deferred/polymorphic JSON/YAML unmarshaling
 - **Validation** using [go-playground/validator](https://github.com/go-playground/validator)
 
