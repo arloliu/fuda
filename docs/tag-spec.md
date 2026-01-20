@@ -114,6 +114,38 @@ loader, _ := fuda.New().
     Build()
 ```
 
+### ByteSize Type
+
+For fields that specifically represent byte sizes, use `fuda.ByteSize` instead of raw integers. This provides:
+
+- **Human-readable JSON/YAML serialization**: Outputs `"10.00 MiB"` instead of `10485760`
+- **Flexible parsing**: Accepts both strings (`"10MiB"`) and numbers (`10485760`)
+- **Type safety**: Clear semantic meaning in your struct
+
+```go
+type Config struct {
+    MaxFileSize fuda.ByteSize `yaml:"max_file_size" default:"10MiB"`
+    BufferSize  fuda.ByteSize `yaml:"buffer_size" default:"64KiB"`
+}
+```
+
+```yaml
+max_file_size: 10MiB
+buffer_size: 64KiB
+```
+
+**Accessor methods:**
+
+```go
+var cfg Config
+fuda.LoadFile("config.yaml", &cfg)
+
+cfg.MaxFileSize.Int64()  // 10485760
+cfg.MaxFileSize.Int()    // 10485760
+cfg.MaxFileSize.Uint64() // 10485760
+cfg.MaxFileSize.String() // "10.00 MiB"
+```
+
 ### Skip Default
 
 Use `-` to skip default processing:

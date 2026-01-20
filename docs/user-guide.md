@@ -169,6 +169,40 @@ loader, _ := fuda.New().
     Build()
 ```
 
+### ByteSize Type
+
+For fields that represent byte sizes, use `fuda.ByteSize` instead of raw integers:
+
+```go
+type Config struct {
+    MaxFileSize fuda.ByteSize `yaml:"max_file_size" default:"10MiB"`
+    BufferSize  fuda.ByteSize `yaml:"buffer_size" default:"64KiB"`
+    UploadLimit fuda.ByteSize `yaml:"upload_limit" default:"2GB"`
+}
+```
+
+**Benefits over raw integers:**
+
+- **Human-readable serialization**: Outputs `"10.00 MiB"` in JSON/YAML instead of `10485760`
+- **Flexible input**: Accepts both strings (`"10MiB"`) and numbers (`10485760`)
+- **Type safety**: Clear semantic meaning in your code
+
+**Accessor methods:**
+
+```go
+cfg.MaxFileSize.Int64()  // 10485760 (int64)
+cfg.MaxFileSize.Int()    // 10485760 (int)
+cfg.MaxFileSize.Uint64() // 10485760 (uint64)
+cfg.MaxFileSize.String() // "10.00 MiB"
+```
+
+**Supported units:**
+
+| Type | Units                                          | Base |
+|------|------------------------------------------------|------|
+| IEC  | `B`, `KiB`, `MiB`, `GiB`, `TiB`, `PiB`, `EiB` | 1024 |
+| SI   | `B`, `KB`, `MB`, `GB`, `TB`, `PB`, `EB`       | 1000 |
+
 ### `env` Tag
 
 Maps a field to an environment variable. Environment values have the **highest priority**.

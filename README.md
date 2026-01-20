@@ -73,7 +73,8 @@ func main() {
 - **Testable filesystem** via [afero](https://github.com/spf13/afero) abstraction for easy testing with in-memory filesystems
 - **Custom type conversion** via `Scanner` interface
 - **Dynamic defaults** via `Setter` interface
-- **Duration type** with human-friendly parsing (e.g., `"30s"`, `"5m"`, `"1h30m"`, `"7d"`)
+- **Duration type** (`fuda.Duration`) with human-friendly parsing (e.g., `"30s"`, `"5m"`, `"1h30m"`, `"7d"`)
+- **ByteSize type** (`fuda.ByteSize`) for human-readable byte sizes (e.g., `"64KiB"`, `"10MiB"`, `"2GB"`)
 - **Byte size parsing** for integer fields (e.g., `"64KiB"`, `"10MiB"`, `"2GB"`)
 - **Preprocessing toggles** for duration/size strings via builder options
 - **RawMessage type** for deferred/polymorphic JSON/YAML unmarshaling
