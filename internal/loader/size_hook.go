@@ -1,12 +1,11 @@
 package loader
 
 import (
-	"math/big"
 	"reflect"
 	"regexp"
 	"strings"
 
-	"github.com/arloliu/fuda/internal/types"
+	"github.com/arloliu/fuda/internal/bytesize"
 	"gopkg.in/yaml.v3"
 )
 
@@ -62,7 +61,7 @@ func preprocessSizeNodesForType(node *yaml.Node, targetType reflect.Type) {
 				numStr := matches[1]
 				unitStr := matches[2]
 
-				if val, ok := parseBytesToBigInt(numStr, unitStr); ok {
+				if val, ok := bytesize.ParseToBigInt(numStr, unitStr); ok {
 					// Update node to be an integer
 					node.Tag = "!!int"
 					node.Value = val.String()
@@ -72,33 +71,6 @@ func preprocessSizeNodesForType(node *yaml.Node, targetType reflect.Type) {
 	case yaml.AliasNode:
 		// Aliases are resolved by yaml.Decode, no preprocessing needed
 	}
-}
-
-// parseBytesToBigInt converts number+unit to bytes.
-// Using big.Int/big.Float to safely handle large numbers before string conversion.
-func parseBytesToBigInt(numStr, unitStr string) (*big.Int, bool) {
-	// Parse number
-	val, _, err := big.ParseFloat(numStr, 10, 256, big.ToNearestEven)
-	if err != nil {
-		return nil, false
-	}
-
-	// Get multiplier
-	multiplier, ok := types.ByteMultiplier(unitStr)
-	if !ok {
-		return nil, false
-	}
-
-	mult := new(big.Float).SetInt64(multiplier)
-	val.Mul(val, mult)
-
-	// Convert to Int, reject fractional bytes
-	i, _ := val.Int(nil)
-	if val.Cmp(new(big.Float).SetInt(i)) != 0 {
-		return nil, false
-	}
-
-	return i, true
 }
 
 func isNumericType(t reflect.Type) bool {

@@ -3,103 +3,29 @@ package types
 import (
 	"errors"
 	"fmt"
-	"math"
+	"math/big"
 	"strconv"
 	"strings"
-	"unicode"
+
+	"github.com/arloliu/fuda/internal/bytesize"
 )
 
-// parseBytes parses a string representation of bytes into an int64.
+// ParseBytes parses a string representation of bytes into an int64.
 // It supports both pure numbers and size suffixes (IEC and SI).
 // Examples: "1024", "1KiB", "2.5MB", "1G".
-func parseBytes(s string) (int64, error) {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return 0, errors.New("empty string")
-	}
-
-	// 1. Try parsing as a raw integer first
-	if val, err := strconv.ParseInt(s, 10, 64); err == nil {
-		return val, nil
-	}
-
-	// 2. Parse unit string
-	// Find where the number ends and unit starts
-	unitStart := len(s)
-	for i := len(s) - 1; i >= 0; i-- {
-		r := rune(s[i])
-		if unicode.IsDigit(r) || r == '.' {
-			break
-		}
-		unitStart = i
-	}
-
-	if unitStart == len(s) || unitStart == 0 {
-		return 0, fmt.Errorf("invalid size format: %s", s)
-	}
-
-	numStr := s[:unitStart]
-	unitStr := s[unitStart:]
-
-	val, err := strconv.ParseFloat(numStr, 64)
-	if err != nil {
-		return 0, fmt.Errorf("invalid number in size string: %s", s)
-	}
-
-	multiplier, ok := lookupByteMultiplier(unitStr)
-	if !ok {
-		return 0, fmt.Errorf("unknown unit: %s", unitStr)
-	}
-
-	// Calculate bytes
-	bytesVal := val * float64(multiplier)
-
-	// Reject fractional bytes to avoid silent truncation
-	if math.Mod(bytesVal, 1) != 0 {
-		return 0, fmt.Errorf("fractional bytes not allowed: %s", s)
-	}
-
-	// Check for overflow (int64 limit)
-	if bytesVal > float64(math.MaxInt64) || bytesVal < float64(math.MinInt64) {
-		return 0, fmt.Errorf("value out of range for int64: %f", bytesVal)
-	}
-
-	return int64(bytesVal), nil
-}
-
-func lookupByteMultiplier(unit string) (int64, bool) {
-	unit = strings.ToLower(unit)
-	val, ok := byteMultipliers[unit]
-	return val, ok
+func ParseBytes(s string) (int64, error) {
+	return bytesize.Parse(s)
 }
 
 // ByteMultiplier exposes the normalized multiplier lookup for other packages.
 func ByteMultiplier(unit string) (int64, bool) {
-	return lookupByteMultiplier(unit)
+	return bytesize.LookupMultiplier(unit)
 }
 
-var byteMultipliers = map[string]int64{
-	// IEC (Binary)
-	"kib": 1024,
-	"mib": 1024 * 1024,
-	"gib": 1024 * 1024 * 1024,
-	"tib": 1024 * 1024 * 1024 * 1024,
-	"pib": 1024 * 1024 * 1024 * 1024 * 1024,
-	"eib": 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
-
-	// SI (Decimal)
-	"kb": 1000,
-	"mb": 1000 * 1000,
-	"gb": 1000 * 1000 * 1000,
-	"tb": 1000 * 1000 * 1000 * 1000,
-	"pb": 1000 * 1000 * 1000 * 1000 * 1000,
-	"eb": 1000 * 1000 * 1000 * 1000 * 1000 * 1000,
-
-	// Byte
-	"b": 1,
-}
-
-func parseBytesUint(s string) (uint64, error) {
+// ParseBytesUint parses a string representation of bytes into a uint64.
+// It supports both pure numbers and size suffixes (IEC and SI).
+// Uses big.Int arithmetic for precision with large values.
+func ParseBytesUint(s string) (uint64, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return 0, errors.New("empty string")
@@ -108,50 +34,56 @@ func parseBytesUint(s string) (uint64, error) {
 		return 0, fmt.Errorf("cannot assign negative value %s to uint", s)
 	}
 
-	// 1. Try raw integer parse first (full uint64 range)
-	if v, err := strconv.ParseUint(s, 10, 64); err == nil {
-		return v, nil
+	// Try parsing as raw uint64 first (fast path for large raw numbers)
+	if val, err := strconv.ParseUint(s, 10, 64); err == nil {
+		return val, nil
 	}
 
-	// 2. Parse unit string
+	// Use big.Int-based parsing for precision
+	val, err := bytesize.Parse(s)
+	if err != nil {
+		// Try parsing as big.Int for values > MaxInt64
+		numStr, unitStr, splitErr := splitNumberUnit(s)
+		if splitErr != nil {
+			return 0, err // Return original error
+		}
+
+		bigVal, ok := bytesize.ParseToBigInt(numStr, unitStr)
+		if !ok {
+			return 0, err
+		}
+
+		// Check uint64 range
+		if bigVal.Sign() < 0 {
+			return 0, fmt.Errorf("cannot assign negative value %s to uint", s)
+		}
+		if bigVal.Cmp(new(big.Int).SetUint64(^uint64(0))) > 0 {
+			return 0, fmt.Errorf("value out of range for uint64: %s", s)
+		}
+
+		return bigVal.Uint64(), nil
+	}
+
+	if val < 0 {
+		return 0, fmt.Errorf("cannot assign negative value %s to uint", s)
+	}
+
+	return uint64(val), nil
+}
+
+// splitNumberUnit splits a size string into number and unit parts.
+func splitNumberUnit(s string) (numStr, unitStr string, err error) {
 	unitStart := len(s)
 	for i := len(s) - 1; i >= 0; i-- {
-		r := rune(s[i])
-		if unicode.IsDigit(r) || r == '.' || r == '+' || r == '-' {
+		if s[i] >= '0' && s[i] <= '9' || s[i] == '.' {
 			break
 		}
 		unitStart = i
 	}
 
 	if unitStart == len(s) || unitStart == 0 {
-		return 0, fmt.Errorf("invalid size format: %s", s)
+		return "", "", fmt.Errorf("invalid size format: %s", s)
 	}
 
-	numStr := s[:unitStart]
-	unitStr := s[unitStart:]
-
-	val, err := strconv.ParseFloat(numStr, 64)
-	if err != nil {
-		return 0, fmt.Errorf("invalid number in size string: %s", s)
-	}
-	if val < 0 {
-		return 0, fmt.Errorf("cannot assign negative value %s to uint", s)
-	}
-
-	multiplier, ok := lookupByteMultiplier(unitStr)
-	if !ok {
-		return 0, fmt.Errorf("unknown unit: %s", unitStr)
-	}
-
-	bytesVal := val * float64(multiplier)
-
-	if math.Mod(bytesVal, 1) != 0 {
-		return 0, fmt.Errorf("fractional bytes not allowed: %s", s)
-	}
-
-	if bytesVal > float64(math.MaxUint64) {
-		return 0, fmt.Errorf("value out of range for uint64: %f", bytesVal)
-	}
-
-	return uint64(bytesVal), nil
+	return s[:unitStart], s[unitStart:], nil
 }

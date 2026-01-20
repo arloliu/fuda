@@ -79,7 +79,7 @@ func convertInt(value string, target reflect.Value) error {
 	}
 
 	// 1. Try generic byte parsing (handles raw numbers and size strings)
-	v, err := parseBytes(value)
+	v, err := ParseBytes(value)
 	if err != nil {
 		return err
 	}
@@ -144,7 +144,7 @@ func parseDuration(s string) (time.Duration, error) {
 }
 
 func convertUint(value string, target reflect.Value) error {
-	v, err := parseBytesUint(value)
+	v, err := ParseBytesUint(value)
 	if err != nil {
 		return err
 	}
