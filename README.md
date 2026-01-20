@@ -75,6 +75,7 @@ func main() {
 - **Dynamic defaults** via `Setter` interface
 - **Duration type** with human-friendly parsing (e.g., `"30s"`, `"5m"`, `"1h30m"`, `"7d"`)
 - **Byte size parsing** for integer fields (e.g., `"64KiB"`, `"10MiB"`, `"2GB"`)
+- **Preprocessing toggles** for duration/size strings via builder options
 - **RawMessage type** for deferred/polymorphic JSON/YAML unmarshaling
 - **Validation** using [go-playground/validator](https://github.com/go-playground/validator)
 
@@ -101,6 +102,8 @@ loader, err := fuda.New().
     WithValidator(customValidator).    // optional: custom validator
     WithRefResolver(customResolver).   // optional: custom ref resolver
     WithTemplate(templateData).        // optional: template processing
+    WithDurationPreprocess(true).      // optional: enable/disable duration preprocessing
+    WithSizePreprocess(true).          // optional: enable/disable size preprocessing
     Build()
 
 if err != nil {

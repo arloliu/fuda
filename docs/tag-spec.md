@@ -68,6 +68,15 @@ Fuda extends Go's standard `time.ParseDuration` to support **days** with the `d`
 
 Units can be combined: `1d12h30m` (1 day, 12 hours, 30 minutes). Fractional days are supported: `0.5d` (12 hours).
 
+Preprocessing is enabled by default and only applies to `time.Duration` fields. You can disable it with:
+
+```go
+loader, _ := fuda.New().
+    FromFile("config.yaml").
+    WithDurationPreprocess(false).
+    Build()
+```
+
 ### Byte Size Parsing
 
 Integer fields (`int`, `int64`, `uint64`, etc.) support human-readable byte size strings with IEC (binary) and SI (decimal) units:
@@ -95,6 +104,15 @@ upload_limit: 2GB       # 2000000000 bytes
 - Decimal values are supported when they resolve to whole bytes: `0.5MiB` = 524288 bytes
 - Fractional bytes are rejected: `0.5KiB` works (512 bytes), but `0.1B` fails
 - String fields are **not** coerced—use integer types for byte sizes
+
+Preprocessing is enabled by default and only applies to numeric fields. You can disable it with:
+
+```go
+loader, _ := fuda.New().
+    FromFile("config.yaml").
+    WithSizePreprocess(false).
+    Build()
+```
 
 ### Skip Default
 

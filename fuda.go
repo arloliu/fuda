@@ -62,6 +62,9 @@ type loaderConfig struct {
 	tmplData     any
 	dotenvConfig *dotenvConfig  // dotenv file loading configuration
 	overrides    map[string]any // Programmatic value overrides
+	// Preprocessing toggles (nil means default true)
+	enableSizePreprocess     *bool
+	enableDurationPreprocess *bool
 }
 
 // dotenvConfig holds dotenv file loading configuration.
@@ -269,6 +272,22 @@ func (b *Builder) WithOverrides(overrides map[string]any) *Builder {
 	return b
 }
 
+// WithSizePreprocess enables or disables size-string preprocessing.
+// Default is enabled for backward compatibility.
+func (b *Builder) WithSizePreprocess(enabled bool) *Builder {
+	b.config.enableSizePreprocess = &enabled
+
+	return b
+}
+
+// WithDurationPreprocess enables or disables duration-string preprocessing.
+// Default is enabled for backward compatibility.
+func (b *Builder) WithDurationPreprocess(enabled bool) *Builder {
+	b.config.enableDurationPreprocess = &enabled
+
+	return b
+}
+
 // Apply applies a configuration function to the builder.
 // This enables reusable configuration bundles:
 //
@@ -411,14 +430,16 @@ func (b *Builder) Build() (*Loader, error) {
 
 	return &Loader{
 		loaderConfig: loaderConfig{
-			envPrefix:    b.config.envPrefix,
-			validator:    b.config.validator,
-			refResolver:  refResolver,
-			timeout:      b.config.timeout,
-			tmplConfig:   b.config.tmplConfig,
-			tmplData:     b.config.tmplData,
-			dotenvConfig: b.config.dotenvConfig,
-			overrides:    b.config.overrides,
+			envPrefix:                b.config.envPrefix,
+			validator:                b.config.validator,
+			refResolver:              refResolver,
+			timeout:                  b.config.timeout,
+			tmplConfig:               b.config.tmplConfig,
+			tmplData:                 b.config.tmplData,
+			dotenvConfig:             b.config.dotenvConfig,
+			overrides:                b.config.overrides,
+			enableSizePreprocess:     b.config.enableSizePreprocess,
+			enableDurationPreprocess: b.config.enableDurationPreprocess,
 		},
 		source:     b.source,
 		sourceName: b.name,
@@ -453,16 +474,18 @@ func (l *Loader) Load(target any) error {
 	}
 
 	engine := &loader.Engine{
-		Validator:      l.validator,
-		RefResolver:    l.refResolver,
-		EnvPrefix:      l.envPrefix,
-		Source:         l.source,
-		SourceName:     l.sourceName,
-		Timeout:        l.timeout,
-		TemplateConfig: tmplCfg,
-		TemplateData:   l.tmplData,
-		DotenvConfig:   dotenvCfg,
-		Overrides:      l.overrides,
+		Validator:                l.validator,
+		RefResolver:              l.refResolver,
+		EnvPrefix:                l.envPrefix,
+		Source:                   l.source,
+		SourceName:               l.sourceName,
+		Timeout:                  l.timeout,
+		TemplateConfig:           tmplCfg,
+		TemplateData:             l.tmplData,
+		DotenvConfig:             dotenvCfg,
+		Overrides:                l.overrides,
+		EnableSizePreprocess:     l.enableSizePreprocess,
+		EnableDurationPreprocess: l.enableDurationPreprocess,
 	}
 
 	return engine.Load(target)

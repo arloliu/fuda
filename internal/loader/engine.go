@@ -31,6 +31,10 @@ type Engine struct {
 	TemplateData   any
 	DotenvConfig   *DotenvConfig
 	Overrides      map[string]any // Programmatic value overrides (dot-notation supported)
+	// EnableSizePreprocess controls size-string preprocessing (default: true).
+	EnableSizePreprocess *bool
+	// EnableDurationPreprocess controls duration-string preprocessing (default: true).
+	EnableDurationPreprocess *bool
 }
 
 func (e *Engine) Load(target any) error {
@@ -83,8 +87,12 @@ func (e *Engine) Load(target any) error {
 		}
 
 		// Preprocess nodes
-		preprocessSizeNodesForType(&node, reflect.TypeOf(target))
-		preprocessDurationNodesForType(&node, reflect.TypeOf(target))
+		if resolvePreprocessFlag(e.EnableSizePreprocess) {
+			preprocessSizeNodesForType(&node, reflect.TypeOf(target))
+		}
+		if resolvePreprocessFlag(e.EnableDurationPreprocess) {
+			preprocessDurationNodesForType(&node, reflect.TypeOf(target))
+		}
 
 		// Decode to target struct
 		if err := node.Decode(target); err != nil {
@@ -163,6 +171,14 @@ func (e *Engine) processStructWithVisited(ctx context.Context, v reflect.Value, 
 	}
 
 	return nil
+}
+
+func resolvePreprocessFlag(flag *bool) bool {
+	if flag == nil {
+		return true
+	}
+
+	return *flag
 }
 
 // processNestedElementsWithVisited recursively processes nested structs, slices, and maps with cycle detection.

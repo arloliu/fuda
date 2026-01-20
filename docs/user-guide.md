@@ -152,6 +152,23 @@ type Config struct {
 Field string `default:"-"`  // Never apply default
 ```
 
+### Preprocessing Options
+
+By default, fuda preprocesses YAML/JSON string values for:
+
+- **Durations** (e.g., `"7d"` → `"168h"`) when the target field is `time.Duration`
+- **Byte sizes** (e.g., `"10MiB"`) when the target field is numeric
+
+You can disable either preprocessing step with builder options:
+
+```go
+loader, _ := fuda.New().
+    FromFile("config.yaml").
+    WithDurationPreprocess(false). // disable day-suffix preprocessing
+    WithSizePreprocess(false).     // disable byte-size preprocessing
+    Build()
+```
+
 ### `env` Tag
 
 Maps a field to an environment variable. Environment values have the **highest priority**.
