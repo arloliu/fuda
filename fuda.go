@@ -568,21 +568,42 @@ func LoadReader(r io.Reader, target any) error {
 // SetDefaults applies `default` tag values to the target struct.
 // Environment variables (via `env` tag) and references (`ref`, `refFrom`) are also resolved,
 // but no YAML/JSON source is processed.
-// This is equivalent to calling New().Build() then Load(), but shorter.
+//
+// By default, NO validation is performed. Use WithValidation(true) to enable validation.
 //
 // Example:
 //
 //	type Config struct {
-//	    Host    string `default:"localhost"`
+//	    Host    string `default:"localhost" validate:"required"`
 //	    Timeout int    `default:"30"`
 //	}
 //
 //	var cfg Config
+//	// Sets defaults only
 //	if err := fuda.SetDefaults(&cfg); err != nil {
 //	    log.Fatal(err)
 //	}
-func SetDefaults(target any) error {
-	l, err := New().Build()
+//
+//	// Sets defaults AND validates
+//	if err := fuda.SetDefaults(&cfg, fuda.WithValidation(true)); err != nil {
+//	    log.Fatal(err)
+//	}
+func SetDefaults(target any, opts ...Option) error {
+	cfg := &config{
+		validate: false, // Default: no validation
+	}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	builder := New()
+	if !cfg.validate {
+		builder.WithValidator(nil)
+	} else if cfg.validator != nil {
+		builder.WithValidator(cfg.validator)
+	}
+
+	l, err := builder.Build()
 	if err != nil {
 		return err
 	}
@@ -592,8 +613,8 @@ func SetDefaults(target any) error {
 
 // MustSetDefaults is like SetDefaults but panics on error.
 // Useful for package-level variable initialization.
-func MustSetDefaults(target any) {
-	if err := SetDefaults(target); err != nil {
+func MustSetDefaults(target any, opts ...Option) {
+	if err := SetDefaults(target, opts...); err != nil {
 		panic("fuda: " + err.Error())
 	}
 }
@@ -625,8 +646,16 @@ func MustLoadReader(r io.Reader, target any) {
 // Validate runs validation on target using the `validate` tag.
 // No loading, default processing, or env resolution occurs.
 // Only validation is performed.
-func Validate(target any) error {
-	v := validator.New()
+func Validate(target any, opts ...Option) error {
+	cfg := &config{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	v := cfg.validator
+	if v == nil {
+		v = validator.New()
+	}
 
 	return v.Struct(target)
 }
