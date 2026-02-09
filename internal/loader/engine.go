@@ -239,7 +239,8 @@ func (e *Engine) processMapValuesWithVisited(ctx context.Context, mapVal reflect
 // applyTags applies env, ref, and default tags to a field.
 func (e *Engine) applyTags(ctx context.Context, field reflect.StructField, fieldVal, parentVal reflect.Value) error {
 	// Apply Env Overrides
-	if err := tags.ProcessEnv(field, fieldVal, e.EnvPrefix); err != nil {
+	envApplied, err := tags.ProcessEnv(field, fieldVal, e.EnvPrefix)
+	if err != nil {
 		return &types.FieldError{Path: field.Name, Tag: "env", Err: err}
 	}
 
@@ -258,8 +259,9 @@ func (e *Engine) applyTags(ctx context.Context, field reflect.StructField, field
 		return &types.FieldError{Path: field.Name, Tag: "ref", Err: err}
 	}
 
-	// Apply Defaults (skip if ref resolved a value, even if empty)
-	if !refResolved {
+	// Apply Defaults (skip if env was applied or ref resolved a value)
+	// This ensures env-set zero values (like "false") aren't overwritten by defaults
+	if !envApplied && !refResolved {
 		if err := tags.ProcessDefault(field, fieldVal); err != nil {
 			return &types.FieldError{Path: field.Name, Tag: "default", Err: err}
 		}

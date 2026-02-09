@@ -63,8 +63,9 @@ func TestProcessEnv(t *testing.T) {
 
 		field, _ := typ.FieldByName("EnvField")
 		val := v.FieldByName("EnvField")
-		err := tags.ProcessEnv(field, val, "")
+		applied, err := tags.ProcessEnv(field, val, "")
 		require.NoError(t, err)
+		require.True(t, applied)
 		assert.Equal(t, "env_val", s.EnvField)
 	})
 
@@ -74,8 +75,9 @@ func TestProcessEnv(t *testing.T) {
 
 		field, _ := typ.FieldByName("EnvField")
 		val := v.FieldByName("EnvField")
-		err := tags.ProcessEnv(field, val, "APP_")
+		applied, err := tags.ProcessEnv(field, val, "APP_")
 		require.NoError(t, err)
+		require.True(t, applied)
 		assert.Equal(t, "prefixed_val", s.EnvField)
 	})
 }

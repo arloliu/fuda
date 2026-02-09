@@ -167,8 +167,9 @@ func TestProcessEnv_ByteSlice(t *testing.T) {
 		field, _ := typ.FieldByName("Data")
 		val := v.FieldByName("Data")
 
-		err := tags.ProcessEnv(field, val, "")
+		applied, err := tags.ProcessEnv(field, val, "")
 		require.NoError(t, err)
+		require.True(t, applied)
 		assert.Equal(t, []byte("env-binary-content"), s.Data)
 	})
 
@@ -182,8 +183,9 @@ func TestProcessEnv_ByteSlice(t *testing.T) {
 		field, _ := typ.FieldByName("Data")
 		val := v.FieldByName("Data")
 
-		err := tags.ProcessEnv(field, val, "APP_")
+		applied, err := tags.ProcessEnv(field, val, "APP_")
 		require.NoError(t, err)
+		require.True(t, applied)
 		assert.Equal(t, []byte("prefixed-env-content"), s.Data)
 	})
 }

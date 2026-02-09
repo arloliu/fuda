@@ -8,10 +8,12 @@ import (
 )
 
 // ProcessEnv processes the 'env' tag for a field.
-func ProcessEnv(field reflect.StructField, value reflect.Value, prefix string) error {
+// Returns true if an environment variable was found and applied, false otherwise.
+// Environment variables always override current values when the env var is set.
+func ProcessEnv(field reflect.StructField, value reflect.Value, prefix string) (bool, error) {
 	tag := field.Tag.Get("env")
 	if tag == "" {
-		return nil
+		return false, nil
 	}
 
 	envKey := tag
@@ -21,8 +23,8 @@ func ProcessEnv(field reflect.StructField, value reflect.Value, prefix string) e
 
 	envVal, ok := os.LookupEnv(envKey)
 	if !ok {
-		return nil
+		return false, nil
 	}
 
-	return types.Convert(envVal, value)
+	return true, types.Convert(envVal, value)
 }
