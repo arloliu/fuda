@@ -89,6 +89,10 @@ func main() {
 - **[Vault Resolver](vault/README.md)** - HashiCorp Vault integration (separate module: `go get github.com/arloliu/fuda/vault`)
 - **[Config Watcher](docs/config-watcher.md)** - Hot-reload configuration watching
 
+## Tools
+
+- **[fuda-doc](cmd/fuda-doc/README.md)** - Documentation generator CLI for configuration structs (install: `go install github.com/arloliu/fuda/cmd/fuda-doc@latest`)
+
 ## API
 
 ### Builder Pattern
