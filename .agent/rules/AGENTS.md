@@ -24,6 +24,8 @@
   *Performance optimizations and Security boundaries.*
 - **[700-lint-after-write.md](700-lint-after-write.md)**
   *Automated linting workflow and common fixes.*
+- **[800-architecture.md](800-architecture.md)**
+  *Project architecture and core components Knowledge Item.*
 
 ---
 *Note: These rules are split for Agent readability and context optimization.*
