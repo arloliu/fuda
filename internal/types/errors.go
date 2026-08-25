@@ -1,8 +1,11 @@
 package types
 
 import (
-	"fmt"
+	"errors"
+	"reflect"
 	"strings"
+
+	"github.com/go-playground/validator/v10"
 )
 
 // FieldError represents an error that occurred while processing a specific field.
@@ -84,20 +87,29 @@ type ValidationError struct {
 }
 
 // Error returns the string representation of the ValidationError.
+//
+// Errors coming from go-playground/validator are rendered as one
+// "<path>: <plain-language message>" line per failed field, e.g.
+// "discovery.pprof.port: must be at most 65535". Tags without a
+// plain-language rendering keep the validator's own message unchanged.
+// This rendered form is a documented compatibility surface; consumers
+// that need structured access should use errors.As to retrieve the
+// underlying validator.ValidationErrors instead of parsing the string.
 func (e *ValidationError) Error() string {
-	if len(e.Errors) == 0 {
+	lines := e.renderLines()
+	if len(lines) == 0 {
 		return "validation failed"
 	}
-	if len(e.Errors) == 1 {
-		return fmt.Sprintf("validation failed: %v", e.Errors[0])
+	if len(lines) == 1 {
+		return "validation failed: " + lines[0]
 	}
 
 	var sb strings.Builder
 	sb.WriteString("validation failed:\n")
-	for i, err := range e.Errors {
+	for i, line := range lines {
 		sb.WriteString("  - ")
-		sb.WriteString(err.Error())
-		if i < len(e.Errors)-1 {
+		sb.WriteString(line)
+		if i < len(lines)-1 {
 			sb.WriteString("\n")
 		}
 	}
@@ -112,4 +124,110 @@ func (e *ValidationError) Unwrap() error {
 	}
 
 	return nil
+}
+
+// renderLines flattens the wrapped errors into display lines, expanding
+// validator.ValidationErrors into one line per failed field.
+func (e *ValidationError) renderLines() []string {
+	lines := make([]string, 0, len(e.Errors))
+	for _, err := range e.Errors {
+		var verrs validator.ValidationErrors
+		if errors.As(err, &verrs) {
+			for _, fe := range verrs {
+				lines = append(lines, renderFieldError(fe))
+			}
+
+			continue
+		}
+
+		lines = append(lines, err.Error())
+	}
+
+	return lines
+}
+
+// renderFieldError renders one validator field error as
+// "<path>: <plain-language message>". The path is the validator
+// namespace with the leading struct name removed, so it matches the
+// field names a consumer's RegisterTagNameFunc reports (typically the
+// config file keys). Tags without a plain-language rendering fall back
+// to the validator's own message, which carries its own path.
+func renderFieldError(fe validator.FieldError) string {
+	msg, ok := renderValidationTag(fe)
+	if !ok {
+		return fe.Error()
+	}
+
+	path := fe.Namespace()
+	if i := strings.Index(path, "."); i >= 0 {
+		path = path[i+1:]
+	} else {
+		path = fe.Field()
+	}
+
+	return path + ": " + msg
+}
+
+// renderValidationTag translates common validation tags into plain
+// statements using the tag parameter, e.g. max=65535 on a numeric field
+// becomes "must be at most 65535". It reports false for tags it does not
+// know how to render.
+func renderValidationTag(fe validator.FieldError) (string, bool) {
+	param := fe.Param()
+	switch fe.Tag() {
+	case "required":
+		return "is required", true
+	case "min", "gte":
+		return renderBound(fe.Kind(), param, "at least")
+	case "max", "lte":
+		return renderBound(fe.Kind(), param, "at most")
+	case "gt":
+		if isNumericKind(fe.Kind()) {
+			return "must be greater than " + param, true
+		}
+	case "lt":
+		if isNumericKind(fe.Kind()) {
+			return "must be less than " + param, true
+		}
+	case "oneof":
+		// Quoted values may contain spaces; leave those to the raw message
+		// rather than splitting them incorrectly.
+		if !strings.Contains(param, "'") {
+			return "must be one of: " + strings.Join(strings.Fields(param), ", "), true
+		}
+	case "hostname_port":
+		return "must be a host:port address", true
+	}
+
+	return "", false
+}
+
+// renderBound phrases an inclusive bound ("at least"/"at most") for the
+// field kind: plain value for numbers, characters for strings, items for
+// slices, arrays, and maps.
+func renderBound(kind reflect.Kind, param, bound string) (string, bool) {
+	switch {
+	case isNumericKind(kind):
+		return "must be " + bound + " " + param, true
+	case kind == reflect.String:
+		return "must be " + bound + " " + param + " characters", true
+	case kind == reflect.Slice || kind == reflect.Array || kind == reflect.Map:
+		return "must have " + bound + " " + param + " items", true
+	default:
+		return "", false
+	}
+}
+
+// isNumericKind reports whether the kind is an integer, unsigned
+// integer, or float.
+func isNumericKind(kind reflect.Kind) bool {
+	//nolint:exhaustive // Only numeric kinds return true.
+	switch kind {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64:
+		return true
+	default:
+		return false
+	}
 }

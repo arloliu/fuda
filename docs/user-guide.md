@@ -547,6 +547,35 @@ type Config struct {
 | `url`, `email`   | Format validation                            |
 | `gte=N`, `lte=N` | Greater/less than or equal                   |
 
+### Validation Error Messages
+
+`ValidationError.Error()` renders common validation tags as plain
+statements, one `<path>: <message>` line per failed field:
+
+```text
+validation failed: discovery.pprof.port: must be at most 65535
+```
+
+The rendered forms are a compatibility surface:
+
+| Tag                       | Rendered message                                 |
+| ------------------------- | ------------------------------------------------ |
+| `required`                | `is required`                                    |
+| `min` / `gte` (numeric)   | `must be at least N`                             |
+| `max` / `lte` (numeric)   | `must be at most N`                              |
+| `min` / `max` (string)    | `must be at least/at most N characters`          |
+| `min` / `max` (slice/map) | `must have at least/at most N items`             |
+| `gt` / `lt` (numeric)     | `must be greater than N` / `must be less than N` |
+| `oneof`                   | `must be one of: a, b, c`                        |
+| `hostname_port`           | `must be a host:port address`                    |
+
+Any other tag keeps go-playground/validator's own message unchanged.
+The field path is the validator namespace without the leading struct
+name; register a `RegisterTagNameFunc` on a custom validator to make it
+match your config file keys. For programmatic access, use `errors.As`
+to retrieve the underlying `validator.ValidationErrors` instead of
+parsing the message string.
+
 ### Custom Validator
 
 ```go
