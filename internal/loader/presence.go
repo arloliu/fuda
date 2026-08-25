@@ -14,7 +14,8 @@ import (
 // embedded structs nest under their type name unless tagged inline,
 // aliases follow their anchor, and merge keys ("<<") pull in the merged mappings.
 // A key only matches when, after resolving aliases, it is a scalar node
-// whose resolved tag is not "!!null" and whose raw text equals the name.
+// whose resolved tag is neither "!!null" nor "!!binary" and whose raw
+// text equals the name.
 // yaml.v3's decoder turns any scalar key into a struct field name or map
 // key by taking its literal text (Node.Value) regardless of the key's
 // resolved type, so a plain "true:" or "0:" key decodes exactly like a
@@ -25,6 +26,15 @@ import (
 // any field or map key, not even one literally named "null".
 // A quoted "null" is unaffected, since quoting forces the string tag
 // rather than resolving to null.
+// A "!!binary" key is the other exception, and it is not refused, only
+// decoded differently: the decoder base64-decodes the key's text and
+// uses the DECODED bytes as the real key, not the raw base64 text.
+// Matching a binary key by its raw text would therefore be wrong,
+// so this lookup never matches one, and it always reports absent for it
+// instead of duplicating the decoder's base64 handling.
+// That is a safe degradation, not a gap: a binary key can only ever
+// cause a false negative here (default applied when it need not be),
+// never the false positive that raw-text matching risked.
 // When a shape cannot be resolved the lookup reports the field as absent,
 // which preserves the previous behavior of applying the default.
 
@@ -161,12 +171,26 @@ func lookupYAMLKey(mapping *yaml.Node, name string, depth int) *yaml.Node {
 // into a struct field name or a string map key.
 // The decoder takes the key's literal text regardless of its resolved
 // type (bool, int, float, and plain string keys all match by raw text),
-// with one exception: a key that resolves to null never decodes into
-// any name, so it is excluded here too.
+// with two exceptions.
+// A key that resolves to null never decodes into any name,
+// so it is excluded here.
+// A "!!binary" key is base64-decoded by the decoder, and the decoded
+// bytes become the string key, not the raw base64 text,
+// so raw-text matching would be wrong for it too.
+// Rather than duplicate the decoder's base64 handling here,
+// a binary key is always reported as not matching,
+// which is the safe direction: it degrades to "absent",
+// so the default still applies instead of a false "supplied".
 func isStringKeyMatch(key *yaml.Node, name string) bool {
 	resolved := resolveYAMLNode(key)
+	if resolved == nil || resolved.Kind != yaml.ScalarNode {
+		return false
+	}
+	if resolved.Tag == "!!null" || resolved.Tag == "!!binary" {
+		return false
+	}
 
-	return resolved != nil && resolved.Kind == yaml.ScalarNode && resolved.Tag != "!!null" && resolved.Value == name
+	return resolved.Value == name
 }
 
 // yamlSequenceElem returns the node for element i of a sequence,

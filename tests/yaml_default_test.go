@@ -293,3 +293,23 @@ func TestYAMLQuotedNullKeySuppliesStringNamedField(t *testing.T) {
 	require.NoError(t, fuda.LoadBytes([]byte("\"null\": 0\n"), &cfg))
 	require.Equal(t, 0, cfg.V)
 }
+
+func TestYAMLBinaryKeyDoesNotSupplyRawTextNamedField(t *testing.T) {
+	// yaml.v3 base64-decodes a "!!binary" key and uses the DECODED bytes
+	// as the string key, not the raw base64 text.
+	// Verified empirically: "!!binary aGVsbG8=: 0" decodes into
+	// map[string]int as map["hello"]: 0, and into a struct with a field
+	// tagged yaml:"aGVsbG8=" the field is left at its zero value,
+	// because the decoded key is "hello", not "aGVsbG8=".
+	// Presence tracking must agree with the decoder,
+	// so a field whose yaml name happens to equal the raw base64 text
+	// is never treated as supplied by a binary key,
+	// and the default still applies.
+	type Config struct {
+		V int `yaml:"aGVsbG8=" default:"4"`
+	}
+
+	var cfg Config
+	require.NoError(t, fuda.LoadBytes([]byte("!!binary aGVsbG8=: 0\n"), &cfg))
+	require.Equal(t, 4, cfg.V)
+}
