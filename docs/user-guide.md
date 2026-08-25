@@ -48,7 +48,7 @@ env → config file → ref/refFrom → default → dsn → SetDefaults() → va
 | 1 (Highest) | `env` tag       | Environment variable is set |
 | 2           | Config file     | Field present in YAML/JSON  |
 | 3           | `ref`/`refFrom` | Field is still zero         |
-| 4           | `default` tag   | Field is still zero         |
+| 4           | `default` tag   | Nothing else supplied the field |
 | 5           | `dsn` tag       | After all above complete    |
 | 6           | `SetDefaults()` | After tags processed        |
 | 7 (Lowest)  | `validate` tag  | Final validation            |
@@ -118,7 +118,12 @@ loader.Load(&cfg)
 
 ### `default` Tag
 
-Sets a fallback value when the field is zero after other sources are checked.
+Sets a fallback value when nothing else supplied the field:
+the config file did not mention the key,
+no env var was set, and no ref resolved a value.
+A key explicitly set to a zero value (`0`, `false`, `""`) in the file is respected and kept.
+An explicit `null` counts as absent, so the default still applies —
+use `null` to say "reset this field to its default".
 
 ```go
 type Config struct {

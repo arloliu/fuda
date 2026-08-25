@@ -30,7 +30,11 @@ type Config struct {
 
 ## `default` Tag
 
-Sets a fallback value when the field is zero after parsing.
+Sets a fallback value when nothing else supplied the field:
+the config file did not mention the key,
+no env var was set, and no ref resolved a value.
+A key explicitly set to a zero value (`0`, `false`, `""`) in the file is kept;
+an explicit `null` counts as absent, so the default still applies.
 
 ```go
 Host    string        `default:"localhost"`

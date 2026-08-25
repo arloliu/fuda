@@ -75,6 +75,10 @@ func (e *Engine) Load(target any) error {
 		}
 	}
 
+	// docNode is the parsed document, kept so tag processing can tell
+	// which fields the document actually supplied.
+	var docNode *yaml.Node
+
 	if len(source) > 0 {
 		// Unmarshal to node tree for duration preprocessing
 		var node yaml.Node
@@ -102,6 +106,8 @@ func (e *Engine) Load(target any) error {
 
 			return fmt.Errorf("failed to decode source: %w", err)
 		}
+
+		docNode = &node
 	}
 
 	targetVal := reflect.ValueOf(target)
@@ -109,7 +115,7 @@ func (e *Engine) Load(target any) error {
 	// Process recursive tags with cycle detection
 	// Pass the original pointer so cycle detection can track it
 	visited := make(map[uintptr]bool)
-	if err := e.processStructWithVisited(ctx, targetVal, visited); err != nil {
+	if err := e.processStructWithVisited(ctx, targetVal, visited, docNode); err != nil {
 		return err
 	}
 
@@ -123,7 +129,7 @@ func (e *Engine) Load(target any) error {
 	return nil
 }
 
-func (e *Engine) processStructWithVisited(ctx context.Context, v reflect.Value, visited map[uintptr]bool) error {
+func (e *Engine) processStructWithVisited(ctx context.Context, v reflect.Value, visited map[uintptr]bool, node *yaml.Node) error {
 	if v.Kind() == reflect.Pointer {
 		if v.IsNil() {
 			return nil
@@ -142,6 +148,13 @@ func (e *Engine) processStructWithVisited(ctx context.Context, v reflect.Value, 
 	}
 
 	t := v.Type()
+
+	// A type that decodes itself may use document keys that do not
+	// correspond to its Go fields, so stop presence tracking there.
+	if node != nil && hasCustomYAMLUnmarshaler(t) {
+		node = nil
+	}
+
 	for i := range v.NumField() {
 		field := t.Field(i)
 		fieldVal := v.Field(i)
@@ -151,13 +164,20 @@ func (e *Engine) processStructWithVisited(ctx context.Context, v reflect.Value, 
 			continue
 		}
 
+		// Locate the value the document supplied for this field, if any.
+		// An inline field's keys live in this struct's own mapping, so
+		// the mapping passes through to the nested walk but does not
+		// count as supplying the field itself.
+		fieldNode, inline := yamlFieldNode(node, field)
+
 		// Process nested elements
-		if err := e.processNestedElementsWithVisited(ctx, fieldVal, visited); err != nil {
+		if err := e.processNestedElementsWithVisited(ctx, fieldVal, visited, fieldNode); err != nil {
 			return err
 		}
 
 		// Apply tags
-		if err := e.applyTags(ctx, field, fieldVal, v); err != nil {
+		yamlSupplied := !inline && yamlNodeSupplied(fieldNode)
+		if err := e.applyTags(ctx, field, fieldVal, v, yamlSupplied); err != nil {
 			return err
 		}
 	}
@@ -182,33 +202,33 @@ func resolvePreprocessFlag(flag *bool) bool {
 }
 
 // processNestedElementsWithVisited recursively processes nested structs, slices, and maps with cycle detection.
-func (e *Engine) processNestedElementsWithVisited(ctx context.Context, fieldVal reflect.Value, visited map[uintptr]bool) error {
+func (e *Engine) processNestedElementsWithVisited(ctx context.Context, fieldVal reflect.Value, visited map[uintptr]bool, node *yaml.Node) error {
 	//nolint:exhaustive // Only struct-like types need processing
 	switch fieldVal.Kind() {
 	case reflect.Struct:
-		return e.processStructWithVisited(ctx, fieldVal, visited)
+		return e.processStructWithVisited(ctx, fieldVal, visited, node)
 	case reflect.Pointer:
 		if fieldVal.Type().Elem().Kind() == reflect.Struct {
-			return e.processStructWithVisited(ctx, fieldVal, visited)
+			return e.processStructWithVisited(ctx, fieldVal, visited, node)
 		}
 	case reflect.Slice:
-		return e.processSliceElementsWithVisited(ctx, fieldVal, visited)
+		return e.processSliceElementsWithVisited(ctx, fieldVal, visited, node)
 	case reflect.Map:
-		return e.processMapValuesWithVisited(ctx, fieldVal, visited)
+		return e.processMapValuesWithVisited(ctx, fieldVal, visited, node)
 	}
 
 	return nil
 }
 
 // processSliceElementsWithVisited recursively processes struct elements in a slice with cycle detection.
-func (e *Engine) processSliceElementsWithVisited(ctx context.Context, sliceVal reflect.Value, visited map[uintptr]bool) error {
+func (e *Engine) processSliceElementsWithVisited(ctx context.Context, sliceVal reflect.Value, visited map[uintptr]bool, node *yaml.Node) error {
 	for j := range sliceVal.Len() {
 		elem := sliceVal.Index(j)
 		// Check if element is a struct or pointer to struct
 		isStruct := elem.Kind() == reflect.Struct
 		isPtrToStruct := elem.Kind() == reflect.Pointer && !elem.IsNil() && elem.Elem().Kind() == reflect.Struct
 		if isStruct || isPtrToStruct {
-			if err := e.processStructWithVisited(ctx, elem, visited); err != nil {
+			if err := e.processStructWithVisited(ctx, elem, visited, yamlSequenceElem(node, j)); err != nil {
 				return err
 			}
 		}
@@ -218,7 +238,7 @@ func (e *Engine) processSliceElementsWithVisited(ctx context.Context, sliceVal r
 }
 
 // processMapValuesWithVisited recursively processes struct values in a map with cycle detection.
-func (e *Engine) processMapValuesWithVisited(ctx context.Context, mapVal reflect.Value, visited map[uintptr]bool) error {
+func (e *Engine) processMapValuesWithVisited(ctx context.Context, mapVal reflect.Value, visited map[uintptr]bool, node *yaml.Node) error {
 	iter := mapVal.MapRange()
 	for iter.Next() {
 		val := iter.Value()
@@ -226,7 +246,7 @@ func (e *Engine) processMapValuesWithVisited(ctx context.Context, mapVal reflect
 			// Map values are not addressable, so we need to copy, process, and set back
 			valCopy := reflect.New(val.Type()).Elem()
 			valCopy.Set(val)
-			if err := e.processStructWithVisited(ctx, valCopy, visited); err != nil {
+			if err := e.processStructWithVisited(ctx, valCopy, visited, yamlMapValue(node, iter.Key())); err != nil {
 				return err
 			}
 			mapVal.SetMapIndex(iter.Key(), valCopy)
@@ -237,7 +257,9 @@ func (e *Engine) processMapValuesWithVisited(ctx context.Context, mapVal reflect
 }
 
 // applyTags applies env, ref, and default tags to a field.
-func (e *Engine) applyTags(ctx context.Context, field reflect.StructField, fieldVal, parentVal reflect.Value) error {
+// yamlSupplied reports whether the config document supplied the field,
+// so an explicit zero value in the file is not overwritten by a default.
+func (e *Engine) applyTags(ctx context.Context, field reflect.StructField, fieldVal, parentVal reflect.Value, yamlSupplied bool) error {
 	// Apply Env Overrides
 	envApplied, err := tags.ProcessEnv(field, fieldVal, e.EnvPrefix)
 	if err != nil {
@@ -259,9 +281,10 @@ func (e *Engine) applyTags(ctx context.Context, field reflect.StructField, field
 		return &types.FieldError{Path: field.Name, Tag: "ref", Err: err}
 	}
 
-	// Apply Defaults (skip if env was applied or ref resolved a value)
-	// This ensures env-set zero values (like "false") aren't overwritten by defaults
-	if !envApplied && !refResolved {
+	// Apply Defaults only when nothing else supplied the field:
+	// not the document, not an env var, and not a resolved ref.
+	// This keeps explicitly set zero values (0, false, "") intact.
+	if !yamlSupplied && !envApplied && !refResolved {
 		if err := tags.ProcessDefault(field, fieldVal); err != nil {
 			return &types.FieldError{Path: field.Name, Tag: "default", Err: err}
 		}

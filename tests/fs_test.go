@@ -142,7 +142,9 @@ func TestWithFilesystem_FileNotFound(t *testing.T) {
 func TestWithFilesystem_RefFileNotFound(t *testing.T) {
 	memFs := afero.NewMemMapFs()
 
-	configContent := []byte(`value: ""`)
+	// The document does not supply the field, so the missing ref falls
+	// back to the default. An explicitly supplied value would win instead.
+	configContent := []byte(`{}`)
 	err := afero.WriteFile(memFs, "/config.yaml", configContent, 0o644)
 	require.NoError(t, err)
 
