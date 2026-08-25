@@ -146,6 +146,26 @@ func TestYAMLMapValueExplicitZeroSurvivesDefault(t *testing.T) {
 	require.Equal(t, 10, cfg.Backends["b"].Weight)
 }
 
+func TestYAMLMapValueWithNumericLookingKeyExplicitZeroSurvivesDefault(t *testing.T) {
+	// A plain, unquoted map key that looks like a number or a bool
+	// ("8080", not "\"8080\"") still decodes into a map[string]T entry
+	// keyed by its literal text: verified empirically that
+	// yaml.Unmarshal populates cfg.Backends["8080"] from "8080:\n  weight: 0\n".
+	// Presence tracking must agree, so the explicit zero survives the
+	// default here exactly as it does for an alphabetic key.
+	type Backend struct {
+		Weight int `yaml:"weight" default:"10"`
+	}
+	type Config struct {
+		Backends map[string]Backend `yaml:"backends"`
+	}
+
+	src := "backends:\n  8080:\n    weight: 0\n"
+	var cfg Config
+	require.NoError(t, fuda.LoadBytes([]byte(src), &cfg))
+	require.Equal(t, 0, cfg.Backends["8080"].Weight)
+}
+
 func TestYAMLMergeKeySuppliesField(t *testing.T) {
 	type Section struct {
 		Workers int `yaml:"workers" default:"4"`
@@ -236,4 +256,40 @@ func TestYAMLExplicitEmptySurvivesMissingRefFallback(t *testing.T) {
 	var cfg Config
 	require.NoError(t, fuda.LoadBytes([]byte("value: \"\"\n"), &cfg))
 	require.Equal(t, "", cfg.Value)
+}
+
+func TestYAMLPlainNullKeyDoesNotSupplyStringNamedField(t *testing.T) {
+	// yaml.v3 resolves a plain, unquoted "null:" key to the !!null tag,
+	// not to the string "null".
+	// A struct field whose yaml name is the literal string "null" is
+	// therefore never decoded from a plain "null:" key,
+	// verified empirically: yaml.Unmarshal into a struct with a field
+	// tagged yaml:"null" leaves the field at its zero value when the
+	// document says "null: 0" with the key unquoted.
+	// Presence tracking must agree with the decoder,
+	// so the default still applies.
+	type Config struct {
+		V int `yaml:"null" default:"4"`
+	}
+
+	var cfg Config
+	require.NoError(t, fuda.LoadBytes([]byte("null: 0\n"), &cfg))
+	require.Equal(t, 4, cfg.V)
+}
+
+func TestYAMLQuotedNullKeySuppliesStringNamedField(t *testing.T) {
+	// A quoted "null:" key resolves to the !!str tag with value "null",
+	// which DOES match a struct field tagged yaml:"null".
+	// Verified empirically: yaml.Unmarshal into a struct with a field
+	// tagged yaml:"null" sets the field when the document says
+	// "\"null\": 0" with the key quoted.
+	// Presence tracking must agree, so the default is skipped and the
+	// document's explicit value survives.
+	type Config struct {
+		V int `yaml:"null" default:"4"`
+	}
+
+	var cfg Config
+	require.NoError(t, fuda.LoadBytes([]byte("\"null\": 0\n"), &cfg))
+	require.Equal(t, 0, cfg.V)
 }

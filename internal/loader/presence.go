@@ -13,6 +13,18 @@ import (
 // keys match the yaml tag name or the lowercased field name (case-sensitively),
 // embedded structs nest under their type name unless tagged inline,
 // aliases follow their anchor, and merge keys ("<<") pull in the merged mappings.
+// A key only matches when, after resolving aliases, it is a scalar node
+// whose resolved tag is not "!!null" and whose raw text equals the name.
+// yaml.v3's decoder turns any scalar key into a struct field name or map
+// key by taking its literal text (Node.Value) regardless of the key's
+// resolved type, so a plain "true:" or "0:" key decodes exactly like a
+// quoted "true:" or "0:" key would.
+// The one key shape the decoder actually refuses is an implicit null
+// (an unquoted null, Null, NULL, or ~, verified empirically for all four):
+// decoding null into a string always fails, so the entry never reaches
+// any field or map key, not even one literally named "null".
+// A quoted "null" is unaffected, since quoting forces the string tag
+// rather than resolving to null.
 // When a shape cannot be resolved the lookup reports the field as absent,
 // which preserves the previous behavior of applying the default.
 
@@ -115,7 +127,7 @@ func lookupYAMLKey(mapping *yaml.Node, name string, depth int) *yaml.Node {
 			merges = append(merges, val)
 			continue
 		}
-		if key.Kind == yaml.ScalarNode && key.Value == name {
+		if isStringKeyMatch(key, name) {
 			return resolveYAMLNode(val)
 		}
 	}
@@ -142,6 +154,19 @@ func lookupYAMLKey(mapping *yaml.Node, name string, depth int) *yaml.Node {
 	}
 
 	return nil
+}
+
+// isStringKeyMatch reports whether a mapping key node decodes to the
+// plain string value name, the way yaml.v3's decoder would decode it
+// into a struct field name or a string map key.
+// The decoder takes the key's literal text regardless of its resolved
+// type (bool, int, float, and plain string keys all match by raw text),
+// with one exception: a key that resolves to null never decodes into
+// any name, so it is excluded here too.
+func isStringKeyMatch(key *yaml.Node, name string) bool {
+	resolved := resolveYAMLNode(key)
+
+	return resolved != nil && resolved.Kind == yaml.ScalarNode && resolved.Tag != "!!null" && resolved.Value == name
 }
 
 // yamlSequenceElem returns the node for element i of a sequence,
