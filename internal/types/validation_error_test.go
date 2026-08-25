@@ -123,6 +123,35 @@ func TestValidationErrorRendersComparisonTags(t *testing.T) {
 	require.Contains(t, msg, "lte: must be at most 5")
 }
 
+func TestValidationErrorRendersGtLtOnStringLength(t *testing.T) {
+	type config struct {
+		Gt string `yaml:"gt" validate:"gt=3"`
+		Lt string `yaml:"lt" validate:"lt=3"`
+	}
+
+	verr := wrapValidation(t, newYAMLNameValidator(), &config{Gt: "ab", Lt: "abcd"})
+
+	msg := verr.Error()
+	require.Contains(t, msg, "gt: must be more than 3 characters")
+	require.Contains(t, msg, "lt: must be less than 3 characters")
+}
+
+func TestValidationErrorRendersGtLtOnSliceLength(t *testing.T) {
+	type config struct {
+		Gt []string `yaml:"gt" validate:"gt=2"`
+		Lt []string `yaml:"lt" validate:"lt=2"`
+	}
+
+	verr := wrapValidation(t, newYAMLNameValidator(), &config{
+		Gt: []string{"a"},
+		Lt: []string{"a", "b"},
+	})
+
+	msg := verr.Error()
+	require.Contains(t, msg, "gt: must have more than 2 items")
+	require.Contains(t, msg, "lt: must have fewer than 2 items")
+}
+
 func TestValidationErrorRendersHostnamePort(t *testing.T) {
 	type config struct {
 		Addr string `yaml:"addr" validate:"hostname_port"`
@@ -159,6 +188,29 @@ func TestValidationErrorMultipleFieldsRenderAsList(t *testing.T) {
 	require.True(t, strings.HasPrefix(msg, "validation failed:\n"), msg)
 	require.Contains(t, msg, "  - port: must be at most 65535")
 	require.Contains(t, msg, "  - name: is required")
+}
+
+func TestValidationErrorMultipleUnknownTagFieldsStillRenderAsList(t *testing.T) {
+	// Even when every failed field falls back to the raw validator
+	// message (no plain-language rendering for its tag), two or more
+	// failures still render as the bulleted list, one line per field,
+	// not the old single-blob fallback.
+	type config struct {
+		Email string `yaml:"email" validate:"email"`
+		ID    string `yaml:"id" validate:"uuid"`
+	}
+
+	verr := wrapValidation(t, newYAMLNameValidator(), &config{Email: "nope", ID: "not-a-uuid"})
+
+	msg := verr.Error()
+	require.True(t, strings.HasPrefix(msg, "validation failed:\n"), msg)
+
+	lines := strings.Split(strings.TrimPrefix(msg, "validation failed:\n"), "\n")
+	require.Len(t, lines, 2)
+	require.Contains(t, lines[0], "  - ")
+	require.Contains(t, lines[0], "failed on the 'email' tag")
+	require.Contains(t, lines[1], "  - ")
+	require.Contains(t, lines[1], "failed on the 'uuid' tag")
 }
 
 func TestValidationErrorWithoutTagNameFuncUsesFieldNames(t *testing.T) {

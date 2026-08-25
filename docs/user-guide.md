@@ -571,15 +571,22 @@ The rendered forms are a compatibility surface:
 | `min` / `max` (string)    | `must be at least/at most N characters`          |
 | `min` / `max` (slice/map) | `must have at least/at most N items`             |
 | `gt` / `lt` (numeric)     | `must be greater than N` / `must be less than N` |
+| `gt` / `lt` (string)      | `must be more than/less than N characters`       |
+| `gt` / `lt` (slice/map)   | `must have more than/fewer than N items`         |
 | `oneof`                   | `must be one of: a, b, c`                        |
 | `hostname_port`           | `must be a host:port address`                    |
 
 Any other tag keeps go-playground/validator's own message unchanged.
-The field path is the validator namespace without the leading struct
-name; register a `RegisterTagNameFunc` on a custom validator to make it
-match your config file keys. For programmatic access, use `errors.As`
-to retrieve the underlying `validator.ValidationErrors` instead of
-parsing the message string.
+The field path is the validator namespace without the leading struct name.
+Register a `RegisterTagNameFunc` on a custom validator to make it match your config file keys.
+For programmatic access, use `errors.As` to retrieve the underlying `validator.ValidationErrors` instead of parsing the message string.
+
+When more than one field fails validation, the error always renders as
+a bulleted list, one line per field.
+This applies even when every failed field's tag has no plain-language
+rendering: each line still keeps the validator's raw `failed on the
+'<tag>' tag` message, it is just one bullet among several rather than
+the older single-blob message.
 
 ### Custom Validator
 

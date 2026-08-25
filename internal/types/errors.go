@@ -182,13 +182,9 @@ func renderValidationTag(fe validator.FieldError) (string, bool) {
 	case "max", "lte":
 		return renderBound(fe.Kind(), param, "at most")
 	case "gt":
-		if isNumericKind(fe.Kind()) {
-			return "must be greater than " + param, true
-		}
+		return renderExclusiveBound(fe.Kind(), param, "greater than", "more than", "more than")
 	case "lt":
-		if isNumericKind(fe.Kind()) {
-			return "must be less than " + param, true
-		}
+		return renderExclusiveBound(fe.Kind(), param, "less than", "less than", "fewer than")
 	case "oneof":
 		// Quoted values may contain spaces; leave those to the raw message
 		// rather than splitting them incorrectly.
@@ -213,6 +209,25 @@ func renderBound(kind reflect.Kind, param, bound string) (string, bool) {
 		return "must be " + bound + " " + param + " characters", true
 	case kind == reflect.Slice || kind == reflect.Array || kind == reflect.Map:
 		return "must have " + bound + " " + param + " items", true
+	default:
+		return "", false
+	}
+}
+
+// renderExclusiveBound phrases a strict bound (gt/lt) for the field kind:
+// plain value for numbers, characters for strings, items for slices,
+// arrays, and maps. numericPhrase, sizePhrase, and itemsPhrase carry the
+// comparison wording for each kind category, since gt and lt phrase
+// collections differently ("more than" vs "fewer than") even though
+// both phrase numbers with a single word ("greater than" / "less than").
+func renderExclusiveBound(kind reflect.Kind, param, numericPhrase, sizePhrase, itemsPhrase string) (string, bool) {
+	switch {
+	case isNumericKind(kind):
+		return "must be " + numericPhrase + " " + param, true
+	case kind == reflect.String:
+		return "must be " + sizePhrase + " " + param + " characters", true
+	case kind == reflect.Slice || kind == reflect.Array || kind == reflect.Map:
+		return "must have " + itemsPhrase + " " + param + " items", true
 	default:
 		return "", false
 	}
