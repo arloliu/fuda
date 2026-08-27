@@ -56,6 +56,10 @@ Fuda uses `0.0.0.0` for `Host` and `8080` for `Port`.
 - [Package documentation](https://pkg.go.dev/github.com/arloliu/fuda)
 - [Examples](examples/README.md)
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for release history.
+
 ## License
 
 Fuda is licensed under the [Apache License 2.0](LICENSE).
