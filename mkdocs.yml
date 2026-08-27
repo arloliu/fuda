@@ -34,6 +34,12 @@ nav:
       - Install Fuda: getting-started/install.md
       - Build your first configuration: getting-started/first-configuration.md
       - Choose a value: getting-started/choosing-a-value.md
+  - Core concepts:
+      - Configuration files: concepts/configuration-files.md
+      - Defaults: concepts/defaults.md
+      - Environment variables: concepts/environment-variables.md
+      - Validation: concepts/validation.md
+      - Data types: concepts/data-types.md
 
 exclude_docs: |
   config-watcher.md
