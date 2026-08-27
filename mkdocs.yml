@@ -47,13 +47,25 @@ nav:
       - Render a configuration template: guides/templates.md
       - Apply programmatic overrides: guides/overrides.md
       - Add dynamic defaults and custom conversions: guides/setter-and-scanner.md
+  - Integrations:
+      - Reload configuration with Watcher: integrations/watcher.md
+      - Load HashiCorp Vault secrets: integrations/vault.md
+      - Write a custom resolver: integrations/custom-resolvers.md
+  - Tooling:
+      - Generate configuration documentation: tooling/fuda-doc.md
+  - Reference:
+      - Tags: reference/tags.md
+      - Builder options: reference/builder-options.md
+      - Loading behaviour: reference/loading-behaviour.md
+      - Errors: reference/errors.md
+      - Troubleshooting: reference/troubleshooting.md
 
 exclude_docs: |
-  config-watcher.md
-  custom-resolvers.md
-  setter-scanner.md
-  tag-spec.md
-  user-guide.md
+  /config-watcher.md
+  /custom-resolvers.md
+  /setter-scanner.md
+  /tag-spec.md
+  /user-guide.md
 
 markdown_extensions:
   - admonition
