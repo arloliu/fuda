@@ -4,10 +4,13 @@
   <img src="docs/assets/images/fuda-logo.png" alt="Fuda logo" width="240">
 </p>
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/arloliu/fuda.svg)](https://pkg.go.dev/github.com/arloliu/fuda)
+
 Fuda is a struct-tag-first configuration library for Go.
 It reads configuration files, supplies defaults, accepts environment overrides, resolves external values, and validates the final struct.
 
-Read the [documentation site](https://arloliu.github.io/fuda/) for the complete beginner-first guide.
+Read the [documentation site](https://arloliu.github.io/fuda/) for the complete beginner-first guide,
+or the [package documentation](https://pkg.go.dev/github.com/arloliu/fuda) for the API reference.
 
 ## Install
 
@@ -50,6 +53,7 @@ Fuda uses `0.0.0.0` for `Host` and `8080` for `Port`.
 - [Install Fuda](https://arloliu.github.io/fuda/getting-started/install/)
 - [Build your first configuration](https://arloliu.github.io/fuda/getting-started/first-configuration/)
 - [Tag reference](https://arloliu.github.io/fuda/reference/tags/)
+- [Package documentation](https://pkg.go.dev/github.com/arloliu/fuda)
 - [Examples](examples/README.md)
 
 ## License
