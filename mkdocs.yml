@@ -40,6 +40,13 @@ nav:
       - Environment variables: concepts/environment-variables.md
       - Validation: concepts/validation.md
       - Data types: concepts/data-types.md
+  - How-to guides:
+      - Load a dotenv file: guides/dotenv.md
+      - Load external references: guides/references.md
+      - Compose a DSN: guides/dsn.md
+      - Render a configuration template: guides/templates.md
+      - Apply programmatic overrides: guides/overrides.md
+      - Add dynamic defaults and custom conversions: guides/setter-and-scanner.md
 
 exclude_docs: |
   config-watcher.md
