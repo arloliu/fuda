@@ -25,17 +25,22 @@ func NewFileResolver(fs afero.Fs) *FileResolver {
 }
 
 // Resolve reads the file at the given URI.
-// Supports both file://path and file:///path formats.
+//
+// Two forms are supported:
+//   - file:///absolute/path reads an absolute path.
+//   - file://relative/path reads a path relative to the process working directory.
+//
+// URI authorities (file://host/path) are not supported; the authority segment
+// is interpreted as the first component of a relative path instead.
 func (r *FileResolver) Resolve(ctx context.Context, uri string) ([]byte, error) {
-	// Handle both file://path (authority=path, path="") and file:///path (authority="", path="/path")
-	// The standard file URI format is file:///absolute/path or file://authority/path
-	// We do not support authority, for convenience, we interpret as file://relative/path instead.
-
-	// Map file://relative/path to file://localhost/relative/path to fix semantic to parse as RFC 3986 URI
+	// Rewrite file://relative/path to file://localhost/relative/path so that
+	// url.Parse treats the whole path as a path instead of parsing its first
+	// component as an RFC 3986 authority.
 	const nonstandardRelativePrefix = "file://"
 	isNonstandardRelative := false
-	if strings.HasPrefix(uri, nonstandardRelativePrefix) &&
-		len(uri) > len(nonstandardRelativePrefix) && uri[len(nonstandardRelativePrefix)] != '/' {
+	if len(uri) > len(nonstandardRelativePrefix) &&
+		strings.EqualFold(uri[:len(nonstandardRelativePrefix)], nonstandardRelativePrefix) &&
+		uri[len(nonstandardRelativePrefix)] != '/' {
 		isNonstandardRelative = true
 		uri = "file://localhost/" + uri[len(nonstandardRelativePrefix):]
 	}

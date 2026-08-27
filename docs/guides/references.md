@@ -26,6 +26,10 @@ The default resolver supports these URI schemes:
 | `https://` | `https://config.example.com/token` | Read from an HTTPS endpoint. |
 | `env://` | `env://APP_PASSWORD` | Read a process environment variable. |
 
+`file:///absolute/path` reads an absolute path.
+`file://relative/path` reads a path relative to the process working directory;
+URI authorities such as `file://host/path` are not supported.
+
 ## Set a timeout for network references
 
 Set a timeout when you use `http://` or `https://` references:

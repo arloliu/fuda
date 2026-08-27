@@ -2,72 +2,27 @@ package resolver
 
 import (
 	"errors"
-	"os"
 	"path"
 	"testing"
-	"time"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 )
 
+// openRecordingFs records the path passed to Open and fails every call.
+// The embedded nil afero.Fs panics on any other method, which flags
+// unexpected filesystem access loudly.
 type openRecordingFs struct {
+	afero.Fs
+
 	openedPath string
 }
 
-var _ afero.Fs = &openRecordingFs{}
-
-func (openRecordingFs) Create(string) (afero.File, error) {
-	return nil, errors.ErrUnsupported
-}
-
-func (openRecordingFs) Mkdir(string, os.FileMode) error {
-	return errors.ErrUnsupported
-}
-
-func (openRecordingFs) MkdirAll(string, os.FileMode) error {
-	return errors.ErrUnsupported
-}
+var _ afero.Fs = (*openRecordingFs)(nil)
 
 func (f *openRecordingFs) Open(name string) (afero.File, error) {
 	f.openedPath = name
 	return nil, errors.ErrUnsupported
-}
-
-func (openRecordingFs) OpenFile(string, int, os.FileMode) (afero.File, error) {
-	return nil, errors.ErrUnsupported
-}
-
-func (openRecordingFs) Remove(string) error {
-	return errors.ErrUnsupported
-}
-
-func (openRecordingFs) RemoveAll(string) error {
-	return errors.ErrUnsupported
-}
-
-func (openRecordingFs) Rename(string, string) error {
-	return errors.ErrUnsupported
-}
-
-func (openRecordingFs) Stat(string) (os.FileInfo, error) {
-	return nil, errors.ErrUnsupported
-}
-
-func (openRecordingFs) Name() string {
-	return "openRecordingFs"
-}
-
-func (openRecordingFs) Chmod(string, os.FileMode) error {
-	return errors.ErrUnsupported
-}
-
-func (openRecordingFs) Chown(string, int, int) error {
-	return errors.ErrUnsupported
-}
-
-func (openRecordingFs) Chtimes(string, time.Time, time.Time) error {
-	return errors.ErrUnsupported
 }
 
 func TestFileResolver_Resolve(t *testing.T) {
@@ -101,6 +56,26 @@ func TestFileResolver_Resolve(t *testing.T) {
 			uri:  "file://userinfo@host:notport/relative/path",
 			want: "userinfo@host:notport/relative/path",
 		},
+		{
+			name: "Relative path with parent traversal",
+			uri:  "file://../parent/path",
+			want: "../parent/path",
+		},
+		{
+			name: "Relative path with percent-encoded space",
+			uri:  "file://my%20dir/my%20file",
+			want: "my dir/my file",
+		},
+		{
+			name: "Absolute path with percent-encoded space",
+			uri:  "file:///my%20dir/my%20file",
+			want: "/my dir/my file",
+		},
+		{
+			name: "Uppercase scheme with relative path",
+			uri:  "FILE://relative/path",
+			want: "relative/path",
+		},
 	}
 
 	for _, tt := range tests {
@@ -109,7 +84,8 @@ func TestFileResolver_Resolve(t *testing.T) {
 			resolver := NewFileResolver(fs)
 
 			_, err := resolver.Resolve(t.Context(), tt.uri)
-			assert.ErrorIs(t, errors.ErrUnsupported, err)
+			assert.ErrorIs(t, err, errors.ErrUnsupported)
+			// Clean normalizes the "./" prefix the resolver adds for relative paths.
 			assert.Equal(t, tt.want, path.Clean(fs.openedPath))
 		})
 	}
