@@ -1,23 +1,11 @@
-# Scanner Interface Example
+# Scanner example
 
-Demonstrates implementing the `Scanner` interface for custom type conversion.
-
-## Features
-
-- Parse strings into custom enum types
-- Support aliases (e.g., "pg" → "postgres")
-- Works with `default` tag values
-
-## The Scanner Interface
-
-```go
-type Scanner interface {
-    Scan(src any) error
-}
-```
+Convert text into custom types with `Scan(any) error`.
 
 ## Run
 
 ```bash
-go run main.go
+go run .
 ```
+
+Read the [Setter and Scanner guide](../../docs/guides/setter-and-scanner.md).

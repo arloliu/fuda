@@ -1,4 +1,3 @@
-# Custom types parsed by Scanner.Scan()
+# `LogLevel` and `Driver` come from their default tags.
+# Fuda calls Scanner.Scan() to convert those tag values.
 app_name: "my-service"
-log_level: "warn"       # Parsed to LogLevel enum
-driver: "pg"            # Parsed to DatabaseDriver (alias for postgres)
