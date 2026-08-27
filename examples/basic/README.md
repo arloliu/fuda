@@ -1,15 +1,21 @@
-# Basic Example
+# Configuration precedence
 
-Demonstrates loading configuration with defaults and environment variable overrides.
+Run a small program that loads YAML, uses a default, and accepts an environment override.
 
 ## Run
 
 ```bash
-go run main.go
+go run .
 ```
 
-## With environment overrides
+It prints `Server: 0.0.0.0:8080`.
+
+## Override a value
 
 ```bash
-APP_HOST=production.example.com APP_PORT=443 go run main.go
+APP_PORT=9090 go run .
 ```
+
+It prints `Server: 0.0.0.0:9090`.
+
+Read the [first configuration guide](../../docs/getting-started/first-configuration.md) for the walkthrough.
