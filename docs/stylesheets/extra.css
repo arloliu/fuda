@@ -1,0 +1,23 @@
+:root {
+  --md-primary-fg-color: #d84a2e;
+  --md-primary-fg-color--light: #f06b4f;
+  --md-primary-fg-color--dark: #a83220;
+  --md-accent-fg-color: #1d6d7a;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #e85b3e;
+  --md-primary-fg-color--light: #f58068;
+  --md-primary-fg-color--dark: #b63b29;
+  --md-accent-fg-color: #75c6cf;
+}
+
+.md-content img[alt="Fuda logo"] {
+  display: block;
+  width: min(12rem, 50%);
+  margin: 1rem auto;
+}
+
+.md-typeset pre > code {
+  padding: 1rem;
+}
