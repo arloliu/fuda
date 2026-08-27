@@ -55,6 +55,9 @@ Fuda checks values in this order:
 
 The first available value wins.
 
+Read more about [configuration files](../concepts/configuration-files.md) and [defaults](../concepts/defaults.md).
+Then read about [environment variables](../concepts/environment-variables.md).
+
 ## Common mistakes
 
 An empty environment variable is still an environment value.
