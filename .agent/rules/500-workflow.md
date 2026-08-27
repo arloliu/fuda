@@ -11,6 +11,11 @@
     - `feat: add dotenv support`
     - `fix: handle empty env values`
 
+## Release
+1. Add a `## [x.y.z] - YYYY-MM-DD` section to `CHANGELOG.md` (Keep a Changelog headings; add a compare link at the bottom).
+2. Create an annotated tag `vx.y.z` whose body has "Highlights" and "Migration notes".
+3. `gh release create vx.y.z` with a Markdown body derived from the changelog entry.
+
 ## Code Review Checklist
 - [ ] Correctness
 - [ ] Performance (no unnecessary allocs)
