@@ -1,0 +1,48 @@
+site_name: Fuda
+site_description: Struct-tag-first configuration for Go.
+site_url: https://arloliu.github.io/fuda/
+repo_url: https://github.com/arloliu/fuda
+repo_name: arloliu/fuda
+
+theme:
+  name: material
+  language: en
+  logo: assets/images/fuda-logo.png
+  favicon: assets/images/fuda-logo.png
+  features:
+    - navigation.footer
+    - search.highlight
+    - search.share
+    - content.code.copy
+  palette:
+    - scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+nav:
+  - Home: index.md
+
+exclude_docs: |
+  config-watcher.md
+  custom-resolvers.md
+  setter-scanner.md
+  tag-spec.md
+  user-guide.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.superfences
+
+extra_css:
+  - stylesheets/extra.css
