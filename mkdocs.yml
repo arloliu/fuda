@@ -30,6 +30,10 @@ theme:
 
 nav:
   - Home: index.md
+  - Getting started:
+      - Install Fuda: getting-started/install.md
+      - Build your first configuration: getting-started/first-configuration.md
+      - Choose a value: getting-started/choosing-a-value.md
 
 exclude_docs: |
   config-watcher.md
