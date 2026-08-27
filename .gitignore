@@ -3,6 +3,8 @@
 *.code-workspace
 .coverage
 .benchmarks/
+.venv-docs/
+site/
 
 tmp/
 bin/

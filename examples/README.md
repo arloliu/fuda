@@ -1,37 +1,22 @@
-# Fuda Examples
+# Fuda examples
 
-This directory contains examples demonstrating fuda's features.
-
-## Examples
-
-| Example | Description |
-|---------|-------------|
-| [basic](basic/) | Default values, environment overrides, builder pattern |
-| [refs](refs/) | External references with `ref` and `refFrom` tags |
-| [template](template/) | Go template processing for dynamic configs |
-| [validation](validation/) | Struct validation with go-playground/validator |
-| [scanner](scanner/) | Custom type conversion with Scanner interface |
-| [setter](setter/) | Dynamic defaults with Setter interface |
-| [watcher](watcher/) | Hot-reload configuration watching |
-
-## Running Examples
+Each directory is a runnable Go program.
 
 ```bash
-cd examples/<name>
-go run main.go
+cd examples/basic
+go run .
 ```
 
-## Feature Matrix
+| Example | Topic |
+| --- | --- |
+| [basic](basic/) | YAML, defaults, and environment overrides. |
+| [dotenv](dotenv/) | Dotenv files and overlays. |
+| [refs](refs/) | `ref` and `refFrom` values. |
+| [dsn](dsn/) | DSN composition. |
+| [template](template/) | Go template processing. |
+| [validation](validation/) | Struct validation. |
+| [scanner](scanner/) | Custom `Scanner` conversion. |
+| [setter](setter/) | Dynamic defaults. |
+| [watcher](watcher/) | Configuration reloads. |
 
-| Feature | Tag/Package | Example |
-|---------|-------------|---------|
-| YAML/JSON parsing | `yaml`, `json` | basic |
-| Default values | `default` | basic |
-| Environment vars | `env` | basic |
-| Static refs | `ref` | refs |
-| Dynamic refs | `refFrom` | refs |
-| Templates | `WithTemplate()` | template |
-| Validation | `validate` | validation |
-| Custom types | `Scanner` interface | scanner |
-| Dynamic defaults | `Setter` interface | setter |
-| Hot-reload | `fuda/watcher` | watcher |
+Read the [documentation site](https://arloliu.github.io/fuda/) for step-by-step guides.
