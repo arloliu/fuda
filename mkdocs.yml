@@ -60,13 +60,6 @@ nav:
       - Errors: reference/errors.md
       - Troubleshooting: reference/troubleshooting.md
 
-exclude_docs: |
-  /config-watcher.md
-  /custom-resolvers.md
-  /setter-scanner.md
-  /tag-spec.md
-  /user-guide.md
-
 markdown_extensions:
   - admonition
   - attr_list
