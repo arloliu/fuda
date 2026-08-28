@@ -42,6 +42,39 @@ func TestByteSlice_RefTag(t *testing.T) {
 	assert.Equal(t, binaryContent, cfg.Cert)
 }
 
+func TestByteSlice_BareRelativeRefTag(t *testing.T) {
+	memFs := afero.NewMemMapFs()
+
+	// Create secret file at a path relative to the process working
+	// directory, matching how a bare (scheme-less) ref is normalized to
+	// file://<value> and then resolved as a relative path.
+	secretContent := []byte("bare-relative-secret")
+	err := afero.WriteFile(memFs, "secrets/bare.txt", secretContent, 0o644)
+	require.NoError(t, err)
+
+	configContent := []byte(`name: bare-ref-test`)
+	err = afero.WriteFile(memFs, "/config.yaml", configContent, 0o644)
+	require.NoError(t, err)
+
+	type Config struct {
+		Name   string `yaml:"name"`
+		Secret []byte `ref:"secrets/bare.txt"`
+	}
+
+	loader, err := fuda.New().
+		WithFilesystem(memFs).
+		FromFile("/config.yaml").
+		Build()
+	require.NoError(t, err)
+
+	var cfg Config
+	err = loader.Load(&cfg)
+	require.NoError(t, err)
+
+	assert.Equal(t, "bare-ref-test", cfg.Name)
+	assert.Equal(t, secretContent, cfg.Secret)
+}
+
 func TestByteSlice_RefFromTag(t *testing.T) {
 	memFs := afero.NewMemMapFs()
 

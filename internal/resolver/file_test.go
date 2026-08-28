@@ -2,7 +2,7 @@ package resolver
 
 import (
 	"errors"
-	"path"
+	"path/filepath"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -76,6 +76,61 @@ func TestFileResolver_Resolve(t *testing.T) {
 			uri:  "FILE://relative/path",
 			want: "relative/path",
 		},
+		{
+			name: "Scheme only with no authority or path",
+			uri:  "file://",
+			want: ".",
+		},
+		{
+			name: "Current directory only",
+			uri:  "file://.",
+			want: ".",
+		},
+		{
+			name: "Parent directory only",
+			uri:  "file://..",
+			want: "..",
+		},
+		{
+			name: "Root absolute path",
+			uri:  "file:///",
+			want: "/",
+		},
+		{
+			name: "Double leading slash absolute path collapses to one",
+			uri:  "file:////x",
+			want: "/x",
+		},
+		{
+			name: "Relative path with trailing slash",
+			uri:  "file://relative/path/",
+			want: "relative/path",
+		},
+		{
+			name: "Relative path with percent-encoded slash decodes as a separator",
+			uri:  "file://my%2Ffile",
+			want: "my/file",
+		},
+		{
+			name: "Relative path with raw fragment delimiter drops the suffix",
+			uri:  "file://a#b",
+			want: "a",
+		},
+		{
+			name: "Absolute Windows drive path",
+			uri:  "file:///C:/x",
+			want: "C:/x",
+		},
+		{
+			name: "Authority-form Windows drive path",
+			uri:  "file://C:/x",
+			want: "C:/x",
+		},
+		{
+			name: "Authority-form Windows drive path with backslash",
+			uri:  `file://C:\x`,
+			want: `C:\x`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -85,8 +140,21 @@ func TestFileResolver_Resolve(t *testing.T) {
 
 			_, err := resolver.Resolve(t.Context(), tt.uri)
 			assert.ErrorIs(t, err, errors.ErrUnsupported)
-			// Clean normalizes the "./" prefix the resolver adds for relative paths.
-			assert.Equal(t, tt.want, path.Clean(fs.openedPath))
+			// filepath.Clean normalizes the "./" prefix the resolver adds for
+			// relative paths and the redundant separators in some edge cases.
+			// tt.want is authored with forward slashes; filepath.FromSlash
+			// converts it to the OS-specific form so the comparison holds on
+			// both POSIX and Windows.
+			assert.Equal(t, filepath.FromSlash(tt.want), filepath.Clean(fs.openedPath))
 		})
 	}
+}
+
+func TestFileResolver_Resolve_InvalidEscapeReportsOriginalURI(t *testing.T) {
+	fs := &openRecordingFs{}
+	resolver := NewFileResolver(fs)
+
+	_, err := resolver.Resolve(t.Context(), "file://bad%zz")
+	assert.ErrorContains(t, err, `"file://bad%zz"`)
+	assert.NotContains(t, err.Error(), "localhost")
 }

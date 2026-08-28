@@ -27,8 +27,12 @@ The default resolver supports these URI schemes:
 | `env://` | `env://APP_PASSWORD` | Read a process environment variable. |
 
 `file:///absolute/path` reads an absolute path.
-`file://relative/path` reads a path relative to the process working directory;
+`file://relative/path` reads a path relative to the process working directory.
 URI authorities such as `file://host/path` are not supported.
+The `file://` prefix is matched case-insensitively, so `FILE://relative/path` behaves the same way.
+`file://C:/x`, `file://C:\x`, and `file:///C:/x` all read the same Windows drive-form absolute path,
+resolving to `C:\x` on Windows.
+The drive letter is treated as part of the path, not a URI authority.
 
 ## Set a timeout for network references
 

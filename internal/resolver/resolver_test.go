@@ -15,6 +15,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// stubResolver returns fixed data, for exercising CompositeResolver.Register
+// and CompositeResolver.Resolve independently of any real sub-resolver.
+type stubResolver struct {
+	data []byte
+}
+
+func (s stubResolver) Resolve(_ context.Context, _ string) ([]byte, error) {
+	return s.data, nil
+}
+
 func TestFileResolver(t *testing.T) {
 	r := resolver.NewFileResolver(nil)
 	ctx := context.Background()
@@ -115,5 +125,33 @@ func TestCompositeResolver(t *testing.T) {
 	t.Run("malformed uri", func(t *testing.T) {
 		_, err := r.Resolve(ctx, "invalid-uri")
 		assert.Error(t, err)
+	})
+
+	t.Run("uppercase file scheme", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		file := filepath.Join(tmpDir, "test.txt")
+		err := os.WriteFile(file, []byte("content"), 0o600)
+		require.NoError(t, err)
+
+		content, err := r.Resolve(ctx, "FILE://"+file)
+		require.NoError(t, err)
+		assert.Equal(t, []byte("content"), content)
+	})
+
+	t.Run("uppercase env scheme", func(t *testing.T) {
+		t.Setenv("FUDA_TEST_COMPOSITE_UPPERCASE_ENV", "composite-value")
+
+		content, err := r.Resolve(ctx, "ENV://FUDA_TEST_COMPOSITE_UPPERCASE_ENV")
+		require.NoError(t, err)
+		assert.Equal(t, []byte("composite-value"), content)
+	})
+
+	t.Run("register with mixed-case scheme matches lowercase lookup", func(t *testing.T) {
+		cr := resolver.New(nil)
+		cr.Register("MyScheme", stubResolver{data: []byte("stub-value")})
+
+		content, err := cr.Resolve(ctx, "myscheme://anything")
+		require.NoError(t, err)
+		assert.Equal(t, []byte("stub-value"), content)
 	})
 }
