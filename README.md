@@ -4,7 +4,10 @@
   <img src="docs/assets/images/fuda-logo.png" alt="Fuda logo" width="240">
 </p>
 
+[![CI](https://github.com/arloliu/fuda/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/arloliu/fuda/actions/workflows/go.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/arloliu/fuda.svg)](https://pkg.go.dev/github.com/arloliu/fuda)
+[![Go Report Card](https://goreportcard.com/badge/github.com/arloliu/fuda)](https://goreportcard.com/report/github.com/arloliu/fuda)
+[![License](https://img.shields.io/github/license/arloliu/fuda)](LICENSE)
 
 Fuda is a struct-tag-first configuration library for Go.
 It reads configuration files, supplies defaults, accepts environment overrides, resolves external values, and validates the final struct.
