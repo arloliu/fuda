@@ -35,8 +35,11 @@ func New(fs afero.Fs) *CompositeResolver {
 }
 
 // Register registers a sub-resolver for a given scheme.
+// The scheme is stored in lowercase so that Resolve, which also lowercases
+// the scheme it extracts from a URI, matches it regardless of the case used
+// at registration or call time.
 func (r *CompositeResolver) Register(scheme string, resolver SubResolver) {
-	r.resolvers[scheme] = resolver
+	r.resolvers[strings.ToLower(scheme)] = resolver
 }
 
 // Resolve delegates resolution to the appropriate sub-resolver.
@@ -47,7 +50,7 @@ func (r *CompositeResolver) Resolve(ctx context.Context, uri string) ([]byte, er
 	}
 	scheme := parts[0]
 
-	resolver, ok := r.resolvers[scheme]
+	resolver, ok := r.resolvers[strings.ToLower(scheme)]
 	if !ok {
 		return nil, fmt.Errorf("unsupported scheme: %s", scheme)
 	}

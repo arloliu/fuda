@@ -27,7 +27,8 @@ func (r *EnvResolver) Resolve(ctx context.Context, uri string) ([]byte, error) {
 	// For simplicity and consistency with file resolver, let's try standard parsing first.
 	// But commonly env://VAR_NAME is used. host=VAR_NAME.
 
-	if !strings.HasPrefix(uri, "env://") {
+	const envPrefix = "env://"
+	if len(uri) < len(envPrefix) || !strings.EqualFold(uri[:len(envPrefix)], envPrefix) {
 		return nil, fmt.Errorf("unsupported scheme for env resolver: %s", uri)
 	}
 
@@ -37,7 +38,7 @@ func (r *EnvResolver) Resolve(ctx context.Context, uri string) ([]byte, error) {
 	// env:///VAR_NAME     -> path=/VAR_NAME (strip leading /)
 
 	// We do "loose" parsing to support potentially weird env var names
-	trimmed := strings.TrimPrefix(uri, "env://")
+	trimmed := uri[len(envPrefix):]
 
 	// If it starts with /, treat as env:///VAR_NAME -> VAR_NAME
 	varName := strings.TrimPrefix(trimmed, "/")

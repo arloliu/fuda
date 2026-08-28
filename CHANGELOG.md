@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 Each version corresponds to an annotated git tag and a
 [GitHub release](https://github.com/arloliu/fuda/releases).
 
+## [Unreleased]
+
+### Fixed
+
+- The default `resolver.New()` composite resolver routes schemes case-insensitively,
+  so `FILE://`, `ENV://`, and `HTTP://` (and mixed-case registrations via `Register`) reach the right sub-resolver.
+- `env://` prefix matching is case-insensitive, matching `file://` and `http://`.
+- `file://C:/x`, `file://C:\x`, and `file:///C:/x` now resolve to the Windows drive-form absolute path
+  instead of being misparsed as a URI authority or left in URL form.
+- Invalid-escape errors from the file resolver (e.g. `file://bad%zz`) now report the caller's original URI
+  instead of the internally rewritten `file://localhost/...` form.
+
 ## [1.7.1] - 2026-08-27
 
 ### Fixed
@@ -137,3 +149,4 @@ Initial release.
 [1.2.0]: https://github.com/arloliu/fuda/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/arloliu/fuda/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/arloliu/fuda/releases/tag/v1.0.0
+[Unreleased]: https://github.com/arloliu/fuda/compare/v1.7.1...HEAD
